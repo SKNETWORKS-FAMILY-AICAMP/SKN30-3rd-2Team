@@ -1,0 +1,68 @@
+[
+  {
+    "case_id": "g01",
+    "contract_type": "SW_FREELANCE",
+    "user_clause": "본 과업의 결과물에 대한 지식재산권은 수급인과 도급인이 공동으로 소유한다.",
+    "gold_clause_id": "sw_freelance-art20",
+    "gold_deviation": "NONE",
+    "trap": "none",
+    "note": "표준(공동소유)과 사실상 동일 — 정상 매칭/이탈없음 기준선"
+  },
+  {
+    "case_id": "g02",
+    "contract_type": "SW_FREELANCE",
+    "user_clause": "본 계약으로 발생하는 모든 결과물의 저작권 및 지식재산권 일체는 별도의 대가 없이 전부 도급인에게 영구 귀속된다.",
+    "gold_clause_id": "sw_freelance-art20",
+    "gold_deviation": "CHANGED",
+    "gold_toxic": "IP_TOTAL_FREE",
+    "trap": "paraphrase",
+    "note": "말바꿈 함정 — 표준은 공동소유인데 전부 무상귀속으로 변형(독소)"
+  },
+  {
+    "case_id": "g03",
+    "contract_type": "SW_FREELANCE",
+    "user_clause": "양 당사자는 계약 이행 과정에서 알게 된 상대방의 영업비밀을 계약 목적 외로 이용하지 아니한다.",
+    "gold_clause_id": "sw_freelance-art17",
+    "gold_deviation": "NONE",
+    "trap": "paraphrase",
+    "note": "말바꿈이지만 의미 동일 — 키워드(영업비밀/비밀)로도 검색돼야 함"
+  },
+  {
+    "case_id": "g04",
+    "contract_type": "SW_FREELANCE",
+    "user_clause": "수급인은 계약 종료 후 5년간 일체의 업무상 정보를 비밀로 유지하며, 위반 시 보수의 3배를 위약벌로 부담한다.",
+    "gold_clause_id": "sw_freelance-art17",
+    "gold_deviation": "CHANGED",
+    "trap": "partial",
+    "note": "부분 변경 함정 — 표준(1년)보다 기간 연장 + 과도한 위약벌 추가"
+  },
+  {
+    "case_id": "g05",
+    "contract_type": "SW_FREELANCE",
+    "user_clause": "수급인은 계약 종료 후 3년간 동종업계 종사 및 경쟁사에 대한 용역 제공을 금지하며, 위반 시 보수의 5배를 배상한다.",
+    "gold_clause_id": null,
+    "gold_deviation": "EXTRA",
+    "gold_toxic": "NONCOMPETE_EXCESS",
+    "trap": "none",
+    "note": "표준에 없는 비표준 추가 조항(독소) — 어떤 표준조항과도 매칭되면 안 됨"
+  },
+  {
+    "case_id": "g06",
+    "contract_type": "SW_FREELANCE",
+    "user_clause": "수급인이 업무 수행 과정에서 도급인의 소프트웨어 및 전산시스템에 손해를 발생시킨 경우 그 손해를 배상한다.",
+    "gold_clause_id": "sw_freelance-art18",
+    "gold_deviation": "NONE",
+    "trap": "none",
+    "note": "손해배상 정상 매칭 기준선"
+  },
+  {
+    "case_id": "g07",
+    "contract_type": "SW_FREELANCE",
+    "user_clause": "수급인은 귀책 여부 및 불가항력 여부와 무관하게 도급인에게 발생한 일체의 손해를 한도 없이 무제한 배상한다.",
+    "gold_clause_id": "sw_freelance-art18",
+    "gold_deviation": "CHANGED",
+    "gold_toxic": "UNFAIR_DAMAGE_CLAIM",
+    "trap": "paraphrase",
+    "note": "말바꿈 함정 — 표준의 면책(불가항력)을 제거하고 무제한 배상으로 변형"
+  }
+]

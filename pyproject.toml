@@ -1,0 +1,32 @@
+[project]
+name = "skn30-3rd-2team"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "chromadb>=1.5.9",
+    "rank-bm25>=0.2.2",
+    "httpx>=0.28.1",
+    "mcp[cli]>=1.28.1",
+    "pydantic>=2.13.4",
+    "ipykernel>=7.3.0",
+    "python-dotenv>=1.2.2",
+    "pytest>=9.1.1",
+    "sentence-transformers>=5.6.0",
+    "kiwipiepy>=0.23.2",
+    "llama-index-core>=0.14.23",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["src" ,"tests", "eval"]
+
+[tool.pytest.ini_options]
+# src/ → `from contracts...`, `from core import ...` / "." → 루트의 `eval` 패키지 import
+pythonpath = ["src", "."]
+testpaths = ["tests"]
+addopts = "-v"

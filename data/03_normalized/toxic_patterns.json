@@ -1,0 +1,23 @@
+[
+  {
+    "pattern_id": "toxic-ip_total_free-01",
+    "pattern": "IP_TOTAL_FREE",
+    "category": "IP_OWNERSHIP",
+    "title": "저작권·지식재산권 전부 무상 귀속",
+    "text": "본 계약에 따라 발생하는 모든 결과물, 산출물 및 그에 관한 저작권·지식재산권 일체는 별도의 대가 없이 전부 도급인(발주자)에게 영구적으로 귀속되며, 수급인은 저작인격권을 포함한 어떠한 권리도 주장하지 아니한다."
+  },
+  {
+    "pattern_id": "toxic-noncompete_excess-01",
+    "pattern": "NONCOMPETE_EXCESS",
+    "category": "CONFIDENTIALITY",
+    "title": "과도한 경업금지·영업활동 제한",
+    "text": "수급인은 본 계약 종료 후 3년간 도급인과 동종·유사한 업종에 종사하거나 경쟁 업체에 용역을 제공할 수 없으며, 이를 위반할 경우 보수의 5배에 해당하는 위약금을 지급한다."
+  },
+  {
+    "pattern_id": "toxic-payment_delay_unfair-01",
+    "pattern": "PAYMENT_DELAY_UNFAIR",
+    "category": "PAYMENT",
+    "title": "부당한 대금 지급 지연·지체상금 면제",
+    "text": "도급인은 발주자로부터 대금을 수령한 이후에 수급인에게 보수를 지급하며, 지급 시기에 관하여 어떠한 지연이자나 지체상금도 부담하지 아니한다. 도급인의 사정에 따라 지급을 무기한 연기할 수 있다."
+  }
+]

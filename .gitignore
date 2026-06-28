@@ -1,0 +1,27 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+.env
+
+# IDE
+.vscode/
+.antigravitycli/
+.idea/
+.DS_Store
+
+# 생성물: `just build-db` 로 재생성되는 DB 파생물 (normalize JSON/SQL이 진실의 원천)
+# 바이너리는 git 으로 관리하지 않습니다. (data/README.md 참고)
+data/migration/*.sqlite3
+data/migration/*.sqlite3-shm
+data/migration/*.sqlite3-wal
+data/migration/*/
+
+# 사용자 업로드 임시 파일
+data/99_uploads/

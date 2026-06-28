@@ -1,0 +1,159 @@
+import logging
+import asyncio
+import os
+from typing import List, Dict, Any, Optional
+
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+
+class KordocCLI:
+    """
+    npx kordoc MCP 서버와 stdio로 통신하여 문서 변환 및 편집 작업을 위임하는 
+    MCP 기반의 순수 도구 유틸리티 클래스입니다.
+    """
+
+    async def _call_mcp_tool(self, tool_name: str, arguments: Dict[str, Any]) -> str:
+        """비동기로 kordoc MCP 서버를 실행하여 특정 도구(Tool)를 호출합니다."""
+        server_params = StdioServerParameters(
+            command="npx",
+            args=["kordoc"]
+        )
+
+        async with stdio_client(server_params) as (read_stream, write_stream):
+            async with ClientSession(read_stream, write_stream) as session:
+                # 1. MCP 세션 초기화
+                await session.initialize()
+
+                # 2. kordoc 툴 목록 조회 및 실제 툴 이름 매핑
+                tools_result = await session.list_tools()
+                actual_tool_name = tool_name
+
+                # 목록에 매칭되는 툴 탐색 (대소문자 또는 유사성 대응)
+                for tool in tools_result.tools:
+                    if tool.name == tool_name:
+                        actual_tool_name = tool.name
+                        break
+                    elif tool_name in tool.name:
+                        actual_tool_name = tool.name
+                        break
+
+                # 3. 도구 실행
+                result = await session.call_tool(actual_tool_name, arguments)
+                if not result.content or len(result.content) == 0:
+                    raise RuntimeError(f"kordoc MCP 툴 '{actual_tool_name}' 결과가 비어 있습니다.")
+
+                return result.content[0].text
+
+    def _run_mcp_sync(self, tool_name: str, arguments: Dict[str, Any]) -> str:
+        """비동기 MCP 호출 함수를 동기식 컨텍스트로 실행할 수 있게 래핑합니다."""
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # 이미 실행 중인 이벤트 루프가 있을 때 (예: FastMCP 서버 내부 등)
+                return asyncio.run_coroutine_threadsafe(
+                    self._call_mcp_tool(tool_name, arguments), loop
+                ).result()
+            else:
+                return asyncio.run(self._call_mcp_tool(tool_name, arguments))
+        except Exception as e:
+            logging.error(f"[Error] kordoc MCP 툴 '{tool_name}' 호출 실패: {e}")
+            raise RuntimeError(f"kordoc MCP 연동 오류: {e}") from e
+
+    def parse_to_text(self, file_path: str, pages: Optional[str] = None) -> str:
+        """문서에서 텍스트(마크다운 포맷)를 추출하여 문자열로 반환합니다."""
+        args = {"path": os.path.abspath(file_path)}
+        if pages:
+            args["pages"] = pages
+        return self._run_mcp_sync("parse", args)
+
+    def parse_to_markdown(self, file_path: str, output_path: str, pages: Optional[str] = None) -> bool:
+        """문서를 파싱하여 지정한 출력 파일로 내보냅니다."""
+        # MCP 툴을 통해 마크다운 텍스트 획득
+        markdown_text = self.parse_to_text(file_path, pages)
+        
+        # 결과를 파일로 저장
+        os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(markdown_text)
+            
+        return os.path.exists(output_path)
+
+    def parse_to_json(self, file_path: str, pages: Optional[str] = None) -> Dict[str, Any]:
+        """문서 구조 및 메타데이터를 포함한 JSON 데이터를 반환합니다."""
+        # JSON 포맷 파싱 툴 호출
+        import json
+        args = {"path": os.path.abspath(file_path), "format": "json"}
+        if pages:
+            args["pages"] = pages
+            
+        result_text = self._run_mcp_sync("parse", args)
+        try:
+            return json.loads(result_text)
+        except json.JSONDecodeError as e:
+            raise RuntimeError("kordoc JSON 변환 데이터 파싱 실패") from e
+
+    def generate_hwpx(self, markdown_path: str, output_path: str, preset: Optional[str] = None) -> bool:
+        """마크다운을 표준 행정 공문서 규격 HWPX 파일로 역생성합니다."""
+        args = {
+            "markdown_path": os.path.abspath(markdown_path),
+            "output_path": os.path.abspath(output_path)
+        }
+        if preset:
+            args["preset"] = preset
+            
+        self._run_mcp_sync("generate", args)
+        return os.path.exists(output_path)
+
+    def patch_hwpx(self, original_path: str, edited_markdown_path: str, output_path: str) -> bool:
+        """원본 HWPX 서식을 유지하면서 텍스트 내용만 업데이트합니다."""
+        args = {
+            "original_path": os.path.abspath(original_path),
+            "edited_markdown_path": os.path.abspath(edited_markdown_path),
+            "output_path": os.path.abspath(output_path)
+        }
+        self._run_mcp_sync("patch", args)
+        return os.path.exists(output_path)
+
+    def fill_form(
+        self,
+        template_path: str,
+        output_path: str,
+        fields: Optional[Dict[str, str]] = None,
+        json_path: Optional[str] = None,
+        dry_run: bool = False
+    ) -> str:
+        """양식 템플릿(신청서 등)의 필드 데이터 자동 바인딩을 수행합니다."""
+        args = {
+            "template_path": os.path.abspath(template_path),
+            "output_path": os.path.abspath(output_path)
+        }
+        
+        if dry_run:
+            args["dry_run"] = True
+            return self._run_mcp_sync("fill", args)
+            
+        if fields:
+            # 딕셔너리를 '성명=홍길동,주소=서울' 포맷 문자열로 변환하여 전달
+            field_str = ",".join(f"{k}={v}" for k, v in fields.items())
+            args["fields"] = field_str
+        elif json_path:
+            args["json_path"] = os.path.abspath(json_path)
+        else:
+            raise ValueError("fields 또는 json_path 중 하나는 반드시 지정되어야 합니다.")
+            
+        return self._run_mcp_sync("fill", args)
+
+    def compare_documents(self, old_path: str, new_path: str) -> str:
+        """두 한글 문서 간의 차이점을 비교 분석하여 신구대조표 리포트를 반환합니다."""
+        args = {
+            "old_path": os.path.abspath(old_path),
+            "new_path": os.path.abspath(new_path)
+        }
+        return self._run_mcp_sync("compare", args)
+
+
+# =================================================================
+# 팀원 공용 kordoc CLI 유틸 객체 (Single Instance - MCP 통신 방식)
+# 사용법: from adapter import kordoc
+# =================================================================
+kordoc = KordocCLI()
