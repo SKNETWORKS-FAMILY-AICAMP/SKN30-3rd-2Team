@@ -58,3 +58,9 @@ uv run pytest     # 테스트
 ## 테스트 (TDD)
 - 모듈 규격은 `tests/`의 테스트로 고정됨. **테스트를 먼저 읽고**, 그것을 통과하도록 구현.
 - `core/`는 순수 함수라 테스트가 곧 명세. 새 로직은 테스트부터.
+
+## 스킬 (작업 전 참조)
+도구별 스킬은 `.agents/skills/<name>/SKILL.md`에 있다.
+- `kordoc` — 한국 공문서(HWP/HWPX/PDF…) 파싱·생성·비교
+- `just` — command runner 레퍼런스
+- `korean-law-mcp` — 한국 법령 MCP
