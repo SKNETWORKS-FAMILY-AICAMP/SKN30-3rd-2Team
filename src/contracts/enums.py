@@ -5,6 +5,19 @@ class ContractType(str, Enum):
     """SW 프리랜서 (도급/용역)"""
     SW_EMPLOYMENT = "SW_EMPLOYMENT"
     """SW 종사자 (기간제/단시간 근로)"""
+    SW_SUBCONTRACT = "SW_SUBCONTRACT"
+    """상용소프트웨어 표준하도급계약서 (본문)"""
+
+
+    # -- 아래는 mvp에 포함하지 않음 --
+    SW_NDA = "SW_NDA"
+    """소프트웨어사업 표준 비밀유지계약서"""
+    SW_DIRECT_PAYMENT = "SW_DIRECT_PAYMENT"
+    """하도급대금 직접지급 합의서"""
+    SW_MODIFICATION = "SW_MODIFICATION"
+    """표준약식변경 하도급계약서"""
+    SW_INDEXATION = "SW_INDEXATION"
+    """표준 연동계약서 (하도급대금 연동 계약서)"""
     ARTS_SERVICE = "ARTS_SERVICE"
     """문화예술용역"""
 
