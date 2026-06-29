@@ -9,30 +9,88 @@ class ContractType(str, Enum):
     """문화예술용역"""
 
 class Category(str, Enum):
-    PAYMENT = "PAYMENT"
-    """대금지급 / 임금"""
-    IP_OWNERSHIP = "IP_OWNERSHIP"
-    """저작권/지식재산권 귀속"""
-    DERIVATIVE_WORK = "DERIVATIVE_WORK"
-    """2차적저작물 작성권"""
-    SCOPE_SOW = "SCOPE_SOW"
-    """과업범위 / 담당업무"""
-    TERMINATION = "TERMINATION"
-    """계약해지 및 해제"""
-    CONFIDENTIALITY = "CONFIDENTIALITY"
-    """비밀유지 / 비밀준수"""
-    LIABILITY = "LIABILITY"
-    """손해배상 및 책임"""
-    DISPUTE = "DISPUTE"
-    """분쟁해결 및 관할법원"""
-    
-    # 근로계약서 대응용 (확장 카테고리)
-    WORKING_HOURS = "WORKING_HOURS"
-    """근로 및 휴게시간"""
-    HOLIDAY_LEAVE = "HOLIDAY_LEAVE"
-    """휴일 및 연차유급휴가"""
-    SOCIAL_INSURANCE = "SOCIAL_INSURANCE"
-    """사회보험 가입"""
+    def __new__(cls, value, description, anchors):
+        obj = str.__new__(cls, value)
+        obj._value_ = value
+        obj.description = description
+        obj.anchors = anchors
+        return obj
+
+    # ── 계약서 공통 ──────────────────────────────
+    PAYMENT = (
+        "PAYMENT",
+        "대금지급 / 임금",
+        ["보수 지급", "대금 지급", "임금", "지급 시기", "지급 방법", "보수 금액"],
+    )
+    IP_OWNERSHIP = (
+        "IP_OWNERSHIP",
+        "저작권/지식재산권 귀속 (2차적저작물 포함)",
+        ["지식재산권 귀속", "저작권 귀속", "2차적저작물", "특허권", "결과물 소유권"],
+    )
+    SCOPE_SOW = (
+        "SCOPE_SOW",
+        "과업범위 / 담당업무",
+        ["업무 범위", "담당 업무", "과업 내용", "업무 내용", "작업 범위", "수행 업무"],
+    )
+    CONTRACT_PERIOD = (
+        "CONTRACT_PERIOD",
+        "계약기간 / 근로계약기간",
+        ["계약 기간", "근로계약 기간", "계약 유효기간", "업무 착수일", "업무 종료일", "근로 개시일"],
+    )
+    TERMINATION = (
+        "TERMINATION",
+        "계약해지 및 해제",
+        ["계약 해지", "계약 해제", "계약 종료", "해지 사유", "해제 조건"],
+    )
+    CONFIDENTIALITY = (
+        "CONFIDENTIALITY",
+        "비밀유지 / 비밀준수",
+        ["비밀 유지", "비밀 준수", "영업비밀", "기밀 정보", "비밀 보호"],
+    )
+    LIABILITY = (
+        "LIABILITY",
+        "손해배상 및 책임",
+        ["손해배상", "배상 책임", "손해 배상 청구", "귀책사유", "배상 범위"],
+    )
+    DISPUTE = (
+        "DISPUTE",
+        "분쟁해결 및 관할법원",
+        ["분쟁 해결", "관할 법원", "중재", "조정", "소송 관할"],
+    )
+    SOCIAL_INSURANCE = (
+        "SOCIAL_INSURANCE",
+        "사회보험 가입",
+        ["사회보험", "국민연금", "건강보험", "고용보험", "산재보험"],
+    )
+
+    # ── 근로계약서 특화 ─────────────────────────────
+    WORKING_HOURS = (
+        "WORKING_HOURS",
+        "근로 및 휴게시간",
+        ["근로시간", "휴게시간", "소정근로", "연장근로", "야간근로", "시업 종업"],
+    )
+    HOLIDAY_LEAVE = (
+        "HOLIDAY_LEAVE",
+        "휴일 및 연차유급휴가",
+        ["연차유급휴가", "휴일", "주휴일", "연차 휴가", "유급 휴가"],
+    )
+
+    # ── 도급계약서 특화 ─────────────────────────────
+    DELIVERY_INSPECTION = (
+        "DELIVERY_INSPECTION",
+        "납품 및 검수",
+        ["납품", "납기일", "검수", "수령 확인", "검사 기준", "계약목적물"],
+    )
+    WARRANTY = (
+        "WARRANTY",
+        "하자담보",
+        ["하자담보", "하자보수", "하자 책임", "결함 보증", "하자보증"],
+    )
+    SUBCONTRACTING = (
+        "SUBCONTRACTING",
+        "재하도급 금지",
+        ["재하도급", "재위탁", "하도급 금지", "제3자 위탁"],
+    )
 
 class Deviation(str, Enum):
     MISSING = "MISSING"
