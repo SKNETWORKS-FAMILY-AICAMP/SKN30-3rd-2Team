@@ -15,16 +15,14 @@ from typing import List
 
 from contracts.enums import ContractType, Category
 from contracts.models import Clause, StandardClause
-from adapter import splitter
+from adapter import splitter, embedder
 
 # "### 제12조(제목)" / "제12조 (제목)" 등에서 조번호·제목 추출 (도메인 규칙)
 HEADER_RE = re.compile(r"^#*\s*(제\d+조)\s*[\(\（]?\s*([^\)\）\n]*)")
 
 # ── 모듈 전역 싱글톤 ────────────────────────────────────────────────────────
 # build_category_vectors() 호출 후 채워집니다.
-# 테스트에서는 monkeypatch.setattr(normalize, "_embedder", fake) 로 교체합니다.
-_embedder = None
-_category_vectors: "dict[Category, list[float]] | None" = None
+_category_vectors: dict[Category, list[float]] | None = None
 
 
 def split_markdown_clauses(md_text: str) -> List[Clause]:
@@ -115,7 +113,7 @@ def split_markdown_clauses(md_text: str) -> List[Clause]:
 
 def build_category_vectors() -> None:
     """
-    _embedder 로 각 Category.anchors 를 인코딩해 _category_vectors 를 초기화합니다.
+    embedder 로 각 Category.anchors 를 인코딩해 _category_vectors 를 초기화합니다.
     just build-db 단계에서 한 번만 호출합니다.
 
     구현 힌트:
@@ -128,8 +126,8 @@ def build_category_vectors() -> None:
 
 def label_category(num: str, title: str, text: str) -> Category:
     """
-    _embedder 로 쿼리를 인코딩하고 _category_vectors 와 코사인 유사도를 비교해 Category 를 반환합니다.
-    _embedder / _category_vectors 는 모듈 전역을 참조합니다 (monkeypatch 교체 가능).
+    embedder 로 쿼리를 인코딩하고 _category_vectors 와 코사인 유사도를 비교해 Category 를 반환합니다.
+    embedder / _category_vectors 는 모듈 전역을 참조합니다 (monkeypatch 교체 가능).
 
     예외:
         ValueError — 최고 유사도가 임계값(0.45) 미달인 경우.

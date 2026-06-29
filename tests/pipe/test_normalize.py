@@ -16,46 +16,13 @@ from contracts.models import Clause
 
 pytestmark = pytest.mark.skip(reason="리뷰 반영 후 skip 삭제")
 
-# ── FakeEmbedder ─────────────────────────────────────────────────────────────
-
-class FakeEmbedder:
-    """
-    Category.anchors 키워드 포함 여부로 차원별 점수를 부여하는 결정론적 모의 임베더.
-    다중어 앵커("보수 지급")를 사용하므로 "하자보수" 같은 복합어에 오탐이 없습니다.
-    """
-
-    def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        cats = list(Category)
-        vecs = []
-        for text in texts:
-            vec = [0.0] * len(cats)
-            for i, cat in enumerate(cats):
-                for anchor in cat.anchors:
-                    if anchor in text:
-                        vec[i] += 1.0
-            norm = sum(x ** 2 for x in vec) ** 0.5
-            vecs.append([x / norm for x in vec] if norm > 0 else vec)
-        return vecs
-
-
-# ── 픽스처 ───────────────────────────────────────────────────────────────────
-
-@pytest.fixture
-def patch_globals(monkeypatch):
-    """
-    normalize 모듈의 _embedder / _category_vectors 전역을 FakeEmbedder 로 교체합니다.
-    테스트 종료 후 monkeypatch 가 자동으로 원복합니다.
-    """
-    import pipe.normalize as normalize
-
-    fake_embedder = FakeEmbedder()
-    fake_vectors = {
-        cat: list(np.mean(fake_embedder.embed_documents(cat.anchors), axis=0))
-        for cat in Category
-    }
-
-    monkeypatch.setattr(normalize, "_embedder", fake_embedder)
-    monkeypatch.setattr(normalize, "_category_vectors", fake_vectors)
+# 파일 내 모든 테스트를 통합 테스트(integration)로 지정
+pytestmark = pytest.mark.integration
+# setup_module 또는 개별 테스트에서 빌드 호출
+@pytest.fixture(autouse=True)
+def init_vectors():
+    from pipe.normalize import build_category_vectors
+    build_category_vectors()
 
 
 # ── SAMPLE 마크다운 ───────────────────────────────────────────────────────────

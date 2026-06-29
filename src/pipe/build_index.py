@@ -6,7 +6,9 @@
 
 CLI 실행부는 3.build_index.py 가 이 함수를 호출합니다. (먼저 `just migrate` 로 SQLite 준비)
 """
-
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from adapter import db, vector
 
 def build_standard_index(collection_name: str = "standard_clauses") -> int:
