@@ -15,7 +15,6 @@ import pytest
 from contracts.enums import Category
 from contracts.models import Clause
 
-pytestmark = pytest.mark.skip(reason="TDD 규격 — 담당: 팀원 A. 구현 시작 시 이 줄 삭제")
 
 SAMPLE_MD = """\
 ### <전문>

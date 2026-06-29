@@ -23,9 +23,18 @@ def split_markdown_clauses(md_text: str) -> List[Clause]:
     adapter.splitter 로 청크를 나눈 뒤, "제N조" 헤더 청크만 골라 Clause 로 변환합니다.
     전문/개요 등 "제N조"가 아닌 청크는 제외합니다.
     """
-    # TODO(팀원 A): splitter.split(md_text) 결과를 순회하며 HEADER_RE 로 num/title 추출,
-    #   본문과 함께 Clause(idx, num, title, text) 생성. idx 는 1부터.
-    raise NotImplementedError("담당: 팀원 A — tests/pipe/test_normalize.py 의 split 테스트")
+    chunks = splitter.split(md_text)
+    clauses = []
+    idx = 1
+    for chunk in chunks:
+        chunk_stripped = chunk.strip()
+        match = HEADER_RE.match(chunk_stripped)
+        if match:
+            num = match.group(1).strip()
+            title = match.group(2).strip()
+            clauses.append(Clause(idx=idx, num=num, title=title, text=chunk_stripped))
+            idx += 1
+    return clauses
 
 
 def label_category(num: str, title: str, text: str) -> Category:
@@ -34,8 +43,31 @@ def label_category(num: str, title: str, text: str) -> Category:
     예) "지식재산권"·"저작권" → IP_OWNERSHIP, "보수"·"대금" → PAYMENT,
         "비밀" → CONFIDENTIALITY, "손해배상" → LIABILITY ...
     """
-    # TODO(팀원 A): 키워드 → Category 매핑 규칙 작성. 매칭 안 되면 가장 가까운 값 또는 규칙 정의.
-    raise NotImplementedError("담당: 팀원 A — tests/pipe/test_normalize.py 의 label 테스트")
+    search_text = f"{title} {text}".lower()
+    if "지식재산권" in search_text or "저작권" in search_text:
+        return Category.IP_OWNERSHIP
+    if "보수" in search_text or "대금" in search_text or "임금" in search_text:
+        return Category.PAYMENT
+    if "비밀" in search_text:
+        return Category.CONFIDENTIALITY
+    if "손해배상" in search_text:
+        return Category.LIABILITY
+    if "2차적저작물" in search_text:
+        return Category.DERIVATIVE_WORK
+    if "과업" in search_text or "담당업무" in search_text:
+        return Category.SCOPE_SOW
+    if "해지" in search_text or "해제" in search_text:
+        return Category.TERMINATION
+    if "분쟁" in search_text or "관할법원" in search_text:
+        return Category.DISPUTE
+    if "근로시간" in search_text or "휴게시간" in search_text:
+        return Category.WORKING_HOURS
+    if "휴가" in search_text or "휴일" in search_text:
+        return Category.HOLIDAY_LEAVE
+    if "사회보험" in search_text:
+        return Category.SOCIAL_INSURANCE
+    
+    return Category.SCOPE_SOW
 
 
 def normalize_file(md_path: str, contract_type: ContractType, version: str) -> List[StandardClause]:
@@ -44,10 +76,63 @@ def normalize_file(md_path: str, contract_type: ContractType, version: str) -> L
     clause_id 예: f"{contract_type.value.lower()}-art{N}" (제N조의 N).
     source 예: f"{파일명} / {num}".
     """
-    # TODO(팀원 A): split_markdown_clauses + label_category 조립 → StandardClause 생성.
-    raise NotImplementedError("담당: 팀원 A — 03_normalized JSON 산출용")
+    import os
+    with open(md_path, "r", encoding="utf-8") as f:
+        md_text = f.read()
+        
+    file_name = os.path.basename(md_path)
+    clauses = split_markdown_clauses(md_text)
+    standard_clauses = []
+    
+    for clause in clauses:
+        category = label_category(clause.num, clause.title, clause.text)
+        
+        import re
+        match = re.search(r"제(\d+)조", clause.num)
+        n = match.group(1) if match else str(clause.idx)
+        
+        clause_id = f"{contract_type.value.lower()}-art{n}"
+        source = f"{file_name} / {clause.num}"
+        
+        sc = StandardClause(
+            clause_id=clause_id,
+            contract_type=contract_type,
+            category=category,
+            title=clause.title,
+            text=clause.text,
+            source=source,
+            version=version
+        )
+        standard_clauses.append(sc)
+        
+    return standard_clauses
 
 
 if __name__ == "__main__":
-    # TODO(팀원 A): data/02_converted/*.md 순회 → normalize_file → data/03_normalized/*.json 저장
-    raise SystemExit("CLI 구현 예정 — pipe.normalize.normalize_file 사용 (담당: 팀원 A)")
+    import os
+    import json
+    from pathlib import Path
+    
+    converted_dir = Path("data/02_converted")
+    normalized_dir = Path("data/03_normalized")
+    normalized_dir.mkdir(parents=True, exist_ok=True)
+    
+    for md_file in converted_dir.glob("*.md"):
+        contract_type = ContractType.SW_FREELANCE
+        if "예술" in md_file.name:
+            contract_type = ContractType.ARTS_SERVICE
+        elif "기간제" in md_file.name or "근로" in md_file.name:
+            contract_type = ContractType.SW_EMPLOYMENT
+            
+        version = "2024"
+        
+        standard_clauses = normalize_file(str(md_file), contract_type, version)
+        json_data = [sc.model_dump() for sc in standard_clauses]
+        
+        out_name = f"standard_clauses.{contract_type.value.lower()}.json"
+        out_path = normalized_dir / out_name
+        
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump(json_data, f, ensure_ascii=False, indent=2)
+            
+    print("[OK] 정규화 완료!")
