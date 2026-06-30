@@ -15,8 +15,6 @@ eval.metrics 의 recall_at_k / mrr 를 재사용합니다. (중복 구현 금지
 """
 import pytest
 
-pytestmark = pytest.mark.skip(reason="TDD 규격 — 담당: 팀원 D. 구현 시작 시 이 줄 삭제")
-
 
 def test_evaluate_집계():
     from eval.run_eval import evaluate
