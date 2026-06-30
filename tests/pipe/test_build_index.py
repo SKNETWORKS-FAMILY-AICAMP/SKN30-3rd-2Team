@@ -5,7 +5,8 @@
 
     build_standard_index(collection_name="standard_clauses") -> int
         - SQLite standard_clauses 전체를 읽어
-        - adapter.embedder 로 임베딩 → adapter.vector.add_documents 로 Chroma 적재
+        - adapter.embedder 로 임베딩 → adapter.vector.upsert_documents 로 Chroma 적재 
+            (재실행 시 중복 방지를 위해 add_documents 대신 upsert_documents 사용)
         - 메타데이터에 contract_type·category·clause_id 포함 (검색 시 필터용)
         - 적재한 문서 수 반환
 

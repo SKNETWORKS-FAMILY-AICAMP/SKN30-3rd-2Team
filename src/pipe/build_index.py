@@ -6,39 +6,47 @@
 
 CLI 실행부는 3.build_index.py 가 이 함수를 호출합니다. (먼저 `just migrate` 로 SQLite 준비)
 """
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from adapter import db, vector
 
 def build_standard_index(collection_name: str = "standard_clauses") -> int:
-    # 재빌드 시 중복 ID 오류 방지: 기존 문서를 먼저 삭제
-    existing = vector.get_collection(collection_name).get()
-    if existing["ids"]:
-        vector.delete_documents(collection_name, existing["ids"])
-
     # 1. SQLite에서 표준조항 전체 조회
     rows = db.fetch_all(
         "SELECT clause_id, text, contract_type, category, title FROM standard_clauses"
     )
 
-    # 2. Chroma에 적재
-    vector.add_documents(
-        collection_name,
-        documents=[r["text"] for r in rows],
-        ids=[r["clause_id"] for r in rows],
-        metadatas=[
-            {
-                "clause_id": r["clause_id"],
-                "contract_type": r["contract_type"],
-                "category": r["category"],
-                "title": r["title"],
-            }
-            for r in rows
-        ],
-    )
+    # 빈 테이블이면 조용히 진행하지 않고 명시 예외 (AGENTS.md: 조용한 실패 금지)
+    if not rows:
+        raise RuntimeError(
+            "standard_clauses 테이블이 비어 있습니다. 먼저 `just migrate`를 실행하세요."
+        )
 
-    # 3. 건수 로그 + 반환
+    # 2. 새 문서를 먼저 적재 — 실패 시 이전 인덱스가 보존되도록 delete는 나중에
+    try:
+        vector.upsert_documents(
+            collection_name,
+            documents=[r["text"] for r in rows],
+            ids=[r["clause_id"] for r in rows],
+            metadatas=[
+                {
+                    "clause_id": r["clause_id"],
+                    "contract_type": r["contract_type"],
+                    "category": r["category"],
+                    "title": r["title"],
+                }
+                for r in rows
+            ],
+        )
+    except Exception as e:
+        raise RuntimeError(f"Chroma 적재 실패 — 기존 인덱스는 유지됩니다: {e}") from e
+
+    # 3. 적재 성공 후 구 문서 정리 (include=[] 로 ID만 조회해 메모리 절약)
+    existing = vector.get_collection(collection_name).get(include=[])
+    old_ids = [id_ for id_ in existing["ids"] if id_ not in {r["clause_id"] for r in rows}]
+    if old_ids:
+        vector.delete_documents(collection_name, old_ids)
+
+    # 4. 건수 로그 + 반환
     count = len(rows)
     return count
 

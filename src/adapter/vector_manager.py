@@ -137,6 +137,35 @@ class VectorManager:
             for k in keys_to_remove:
                 self._bm25_indices.pop(k, None)
                 self._bm25_docs.pop(k, None)
+    
+    def upsert_documents(
+        self, collection_name: str, documents: List[str], ids: List[str], metadatas: Optional[List[Dict[str, Any]]] = None
+    ):
+        """
+        지정된 컬렉션에 문서를 일괄 추가하며, BGE-M3 Dense 임베딩을 자동으로 생성하여 적재합니다.
+        """
+        if not documents:
+            return
+            
+        collection = self.get_collection(collection_name)
+        
+        # Dense 임베딩 추출
+        embeddings = embedder.embed_documents(documents)
+        
+        # Chroma 데이터 저장
+        collection.upsert(
+            ids=ids,
+            embeddings=embeddings,
+            documents=documents,
+            metadatas=metadatas
+        )
+        
+        # 데이터 갱신에 따라 해당 컬렉션 관련 캐싱된 BM25 인덱스 모두 파기
+        with self._lock:
+            keys_to_remove = [k for k in self._bm25_indices.keys() if k[0] == collection_name]
+            for k in keys_to_remove:
+                self._bm25_indices.pop(k, None)
+                self._bm25_docs.pop(k, None)
 
     def delete_documents(self, collection_name: str, ids: List[str]):
         """지정된 컬렉션에서 ID 매칭 문서를 제거합니다."""
