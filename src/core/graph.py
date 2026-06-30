@@ -7,17 +7,23 @@ def traverse_related_risks(
 ) -> List[str]:
     """
     [고도화 A: 계약-조항 의존성 그래프]
-    이탈(Deviation)이 발생한 조항으로부터 인접 리스트를 DFS 탐색하여 
-    연쇄적으로 함께 검토해야 할 연관 표준 조항 ID 목록을 추론 및 반환합니다.
-    (I/O 없이 메모리 구조에서 순수 알고리즘으로 동작합니다.)
-    
+    CHANGED·MISSING 이탈이 확정된 조항에 대해, 연쇄적으로 함께 검토해야 할
+    표준조항 ID 목록을 반환합니다. DeviationResult.related_risk_clauses 필드를 채웁니다.
+
+    adjacency_list는 data/03_normalized/clause_relations.json을 파이프가 메모리에
+    로드한 구조입니다(clause_id → [연관 clause_id, ...]). 예를 들어 IP_OWNERSHIP 조항이
+    이탈하면 DERIVATIVE_WORK·LIABILITY 관련 조항도 함께 검토 대상으로 올라옵니다.
+
+    시작 노드(deviated_clause_id)는 이미 이탈로 확정됐으므로 결과에서 제외하고,
+    그 조항과 연결된 노드들만 수집합니다.
+
     Args:
-        adjacency_list (Dict[str, List[str]]): 노드(조항 ID) 간 인접 리스트
-        deviated_clause_id (str): 이탈이 감지된 조항의 ID
-        max_depth (int): 탐색할 최대 그래프 깊이
-        
+        adjacency_list: clause_id 기준 인접 리스트 (pipe가 JSON에서 로드해 주입)
+        deviated_clause_id: 이탈이 확정된 표준조항의 clause_id
+        max_depth: 탐색할 최대 깊이 (기본 3 — 직접·간접 연관까지)
+
     Returns:
-        List[str]: 함께 검토해야 할 연관 조항 ID 목록 (오름차순 정렬)
+        함께 검토해야 할 표준조항 clause_id 목록 (오름차순 정렬)
     """
     related_risks: Set[str] = set()
     visited: Set[str] = set()

@@ -6,16 +6,70 @@ WorkShield의 **핵심 기여**(기획서 7장). "표준 대비 이탈을 탐지
 
 DB 조회·임베딩 같은 외부 작업이 필요하면 **인자로 받습니다**(adapter를 직접 import 하지 않음). 조립은 `pipe/`가 담당합니다.
 
+---
+
+## 파이프라인 속 위치
+
+```
+[retriever] top-k 후보 반환
+      ↓
+select_best_match()          ← 리랭커 점수 기준 최고 후보 선택 + 임계치 게이트
+      ↓
+[pipe] 후보 0개이면 NO_MATCH 직접 처리  ← core가 아닌 pipe 책임
+      ↓
+classify_clause_deviation()  ← EXTRA / CHANGED / NONE 확정
+      ↓
+detect_missing_clauses()     ← 루프 종료 후 한 번, MISSING 확정
+      ↓
+traverse_related_risks()     ← CHANGED·MISSING 확정 조항에 대해 연관 조항 추적 (고도화 A)
+detect_toxic_patterns()      ← 동일 조항에 대해 독소 패턴 역방향 검색 (고도화 B)
+```
+
+---
+
 ## 함수 (모두 `from core import ...`)
 
-| 함수 | 역할 | 기획서 |
+| 함수 | 파이프라인 단계 | 반환 |
 | --- | --- | --- |
-| `select_best_match(candidates, threshold)` | 후보 중 최고 점수 선택, 임계치 미만이면 매칭 없음 처리 | 7-②③ |
-| `classify_clause_deviation(user_text, matched_standard, score, match_threshold, change_threshold)` | `MISSING`/`EXTRA`/`CHANGED`/`NONE` 분류 | 7-③ |
-| `calculate_text_similarity(t1, t2)` | 두 본문 일치율(0~1) | 7-③ |
-| `detect_missing_clauses(all_standard, matched_ids)` | 한 번도 매칭 안 된 표준조항 = 누락 | 3.2 MISSING |
-| `traverse_related_risks(adjacency_list, deviated_id, max_depth)` | 의존성 그래프 DFS — 함께 검토할 조항 | 7.1 (고도화 A) |
-| `detect_toxic_patterns(matches, threshold)` | 독소 패턴 매칭 임계 필터 | 7.2 (고도화 B) |
+| `select_best_match(candidates, threshold)` | 리랭커 직후 — 최고 후보 선택 | `(StandardClause \| None, float)` |
+| `calculate_text_similarity(t1, t2)` | classify 내부 — 확정된 매칭의 본문 변경량 측정 | `float` 0~1 |
+| `classify_clause_deviation(user_text, matched_standard, score, match_threshold, change_threshold)` | 조항 단위 루프 — EXTRA / CHANGED / NONE 판정 | `Deviation` |
+| `detect_missing_clauses(all_standard, matched_ids)` | 루프 종료 후 1회 — 한 번도 매칭 안 된 표준조항 수집 | `List[StandardClause]` |
+| `traverse_related_risks(adjacency_list, deviated_id, max_depth)` | 이탈 확정 후 — 연관 위험 조항 DFS 탐색 (고도화 A) | `List[str]` clause_id |
+| `detect_toxic_patterns(matches, threshold)` | 조항 단위 루프 — 독소 패턴 역방향 검색 필터 (고도화 B) | `List[ToxicPattern]` |
+
+---
+
+## Deviation 분류 체계와 함수 대응
+
+각 Deviation 값이 어느 함수에서 결정되는지, 주어가 무엇인지 정리합니다.
+
+| Deviation | 주어 | 결정 위치 | 의미 |
+| --- | --- | --- | --- |
+| `EXTRA` | 사용자 조항 | `classify_clause_deviation` | 대응 표준조항 없거나 유사도 미달 — 비표준 추가 조항 |
+| `CHANGED` | 사용자 조항 | `classify_clause_deviation` | 표준조항과 매칭됐지만 본문 내용이 크게 다름 |
+| `NONE` | 사용자 조항 | `classify_clause_deviation` | 표준조항과 매칭되고 본문도 일치 — 이탈 없음 |
+| `MISSING` | **표준조항** | `detect_missing_clauses` | 표준에는 있는데 사용자 계약서에 대응 조항이 없음 |
+| `NO_MATCH` | — | **pipe 레이어** | 검색 자체가 후보를 반환하지 못함 (core 밖) |
+
+> `MISSING`의 주어가 사용자 조항이 아니라 표준조항이기 때문에, 단일 조항 루프 안에서 판단할 수 없어 `detect_missing_clauses`로 분리됩니다.
+>
+> `NO_MATCH`는 검색 인프라 문제이므로 core가 아닌 pipe에서 직접 처리합니다. `classify_clause_deviation`에 후보 없음(`matched_standard=None`)이 들어오는 경우는 "후보는 있었으나 전부 threshold 미달"인 경우만이므로 `EXTRA`가 올바릅니다.
+
+---
+
+## 임계치(Threshold) 가이드
+
+두 임계치는 역할이 다르며, 초기값은 eval 결과로 조정합니다.
+
+| 파라미터 | 기본값 | 역할 |
+| --- | --- | --- |
+| `match_threshold` | 0.5 (pipe 주입) | 대응 표준조항이 '존재한다'고 볼 수 있는 최소 리랭커 점수. 미달 → `EXTRA` |
+| `change_threshold` | 0.85 | 매칭된 조항의 본문이 '충분히 같다'고 볼 수 있는 SequenceMatcher 일치율. 미달 → `CHANGED` |
+
+`change_threshold`에 임베딩 유사도 대신 SequenceMatcher를 쓰는 이유: 법률 문서에서는 미묘한 문구 변경이 법적으로 큰 차이를 만듭니다. 의미 벡터상 가까운 두 조항도 내용 변경으로 보아야 할 수 있으므로, 글자 단위 비교가 더 적합합니다.
+
+---
 
 ## 규칙
 - adapter·config import 금지. 외부 데이터는 **인자로 주입**.

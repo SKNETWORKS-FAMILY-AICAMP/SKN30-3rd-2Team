@@ -2,19 +2,23 @@ from typing import List, Tuple, Optional
 from contracts.models import StandardClause
 
 def select_best_match(
-    candidates: List[Tuple[StandardClause, float]], 
+    candidates: List[Tuple[StandardClause, float]],
     threshold: float
 ) -> Tuple[Optional[StandardClause], float]:
     """
-    유사도 점수(리랭커 점수 등)가 가장 높은 후보를 선택하되, 
-    임계치(threshold) 미만인 경우 매칭을 인정하지 않습니다.
-    
+    Chroma 하이브리드 검색이 반환한 top-k 후보 중 리랭커 점수가 가장 높은 표준조항을 선택합니다.
+    이 함수는 조항 단위 검토 루프에서 리랭커 결과를 받은 직후 호출되며,
+    "이 사용자 조항이 어떤 표준조항과 대응되는가"를 결정하는 관문입니다.
+
+    threshold 미만이면 대응 표준조항이 없다고 판단합니다(→ 후속 classify에서 EXTRA 처리).
+    candidates가 비어 있으면 pipe 레이어에서 NO_MATCH로 처리해야 합니다(이 함수의 책임 밖).
+
     Args:
-        candidates (List[Tuple[StandardClause, float]]): (표준 조항, 유사도 점수) 리스트
-        threshold (float): 최소 매칭 인정 점수 임계치
-        
+        candidates: 리랭커가 점수를 매긴 (표준조항, 점수) 후보 목록
+        threshold: 매칭으로 인정할 최소 점수 (기본값은 pipe에서 주입)
+
     Returns:
-        Tuple[Optional[StandardClause], float]: 선택된 표준 조항(없으면 None)과 점수
+        (매칭된 표준조항, 점수) — 임계치 미달 또는 후보 없으면 (None, 0.0)
     """
     if not candidates:
         return None, 0.0
