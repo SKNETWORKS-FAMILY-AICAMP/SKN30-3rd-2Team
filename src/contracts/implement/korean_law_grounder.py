@@ -10,7 +10,6 @@ from adapter import koreanLaw
 CATEGORY_QUERIES = {
     Category.PAYMENT: "민법 제665조 보수의 지급시기",
     Category.IP_OWNERSHIP: "저작권법 제10조 및 지식재산권 귀속",
-    Category.DERIVATIVE_WORK: "저작권법 제22조 2차적저작물작성권",
     Category.SCOPE_SOW: "민법 제664조 도급의 의의",
     Category.TERMINATION: "민법 제673조 완성전의 도급인의 해제권",
     Category.CONFIDENTIALITY: "부정경쟁방지 및 영업비밀보호에 관한 법률 제2조 영업비밀",
@@ -74,6 +73,9 @@ class KoreanLawGrounder(Grounder):
 
     def get_grounding(self, category: Category) -> List[GroundingLaw]:
         """주어진 조항 분류 카테고리에 대한 국가 표준 근거 법조문을 수집합니다."""
+        # 일반 조항(정의·효력·통지·해석 등)은 법령 grounding 대상이 아니다.
+        if category == Category.GENERAL:
+            return []
         query_str = CATEGORY_QUERIES.get(category, "민법 도급")
         try:
             # MCP 클라이언트를 호출해 원본 법령 정보 획득

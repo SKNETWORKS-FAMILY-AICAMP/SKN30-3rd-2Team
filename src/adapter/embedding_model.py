@@ -1,5 +1,5 @@
 import threading
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from config import EMBEDDING_MODEL_NAME, RERANKER_MODEL_NAME
 
 from sentence_transformers import SentenceTransformer, CrossEncoder
@@ -25,7 +25,7 @@ class Bgem3Embedder:
     def __init__(self):
         if self._initialized:
             return
-        self.model = None
+        self.model : Optional[SentenceTransformer] = None
         self._initialized = True
 
     def _load_model(self):
