@@ -18,7 +18,7 @@ from typing import List
 
 # src/ 패키지 절대 경로 추가 (스크립트로 직접 실행하기 위함)
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-
+from contracts.models import StandardSubChunk
 from contracts.enums import ContractType, Category
 from contracts.models import Clause, StandardClause
 from adapter import splitter, embedder
@@ -135,6 +135,60 @@ def _maxpool_scores(q_vec: np.ndarray, categories: list[Category]) -> np.ndarray
         scores[i] = np.max(anchors @ q_vec)           # 가장 가까운 앵커 1개의 유사도
     return scores
 
+def _parse_sub_chunks(rows: list[StandardClause]) -> list[StandardSubChunk]:
+    sub_chunks = []
+    
+    # 2. 거대 조항 서브청킹 로직
+    for r in rows:
+        clause_id = r.clause_id
+        text = r.text
+        
+        symbols = re.findall(r"[①-⑳]", text)
+        nums = re.findall(r"^[0-9]+\.", text, flags=re.MULTILINE)
+        
+        # 500자 초과 OR 기호 3개 이상이면 쪼개기 (분할 조건)
+        if len(text) > 300 or (len(symbols) + len(nums)) >= 3:
+            parts = re.split(r"(^[①-⑳]|^[0-9]+\.)", text, flags=re.MULTILINE)
+            
+            current_chunk = parts[0].strip()
+            idx = 0
+            
+            if current_chunk:
+                sub_chunks.append(
+                    StandardSubChunk(
+                        sub_chunk_id=f"{clause_id}-sub{idx:02d}",
+                        parent_clause_id=clause_id,
+                        sub_chunk_index=idx,
+                        text=current_chunk
+                    )
+                )
+                idx += 1
+                
+            for i in range(1, len(parts), 2):
+                symbol = parts[i]
+                content = parts[i+1] if i+1 < len(parts) else ""
+                chunk_text = (symbol + content).strip()
+                if chunk_text:
+                    sub_chunks.append(
+                        StandardSubChunk(
+                            sub_chunk_id=f"{clause_id}-sub{idx:02d}",
+                            parent_clause_id=clause_id,
+                            sub_chunk_index=idx,
+                            text=chunk_text
+                        )
+                    )
+                    idx += 1
+        else:
+            # 쪼개지 않고 조 전체를 1청크로 유지
+            sub_chunks.append(
+                StandardSubChunk(
+                    sub_chunk_id=f"{clause_id}-sub00",
+                    parent_clause_id=clause_id,
+                    sub_chunk_index=0,
+                    text=text
+                )
+            )
+    return sub_chunks
 
 def label_category(title: str, text: str) -> Category:
     """
@@ -174,7 +228,7 @@ def label_category(title: str, text: str) -> Category:
     return min(candidates, key=lambda c: _PRECEDENCE_RANK[c])
 
 
-def normalize_file(md_path: str, contract_type: ContractType, version: str) -> List[StandardClause]:
+def normalize_file(md_path: str, contract_type: ContractType, version: str) ->  tuple[List[StandardClause], List[StandardSubChunk]]:
     """
     마크다운 파일 하나를 StandardClause 리스트로 정규화합니다.
 
@@ -198,7 +252,7 @@ def normalize_file(md_path: str, contract_type: ContractType, version: str) -> L
     
     for clause in clauses:
         # 표준 조항은 절대 드롭하지 않는다. 특정 카테고리가 없으면 GENERAL 로 분류된다.
-        category = label_category(clause.num, clause.title, clause.text)
+        category = label_category(clause.title, clause.text)
 
         match = re.search(r"제(\d+)조", clause.num)
         n = match.group(1) if match else str(clause.idx)
@@ -224,11 +278,15 @@ def normalize_file(md_path: str, contract_type: ContractType, version: str) -> L
         )
         standard_clauses.append(sc)
         
-    return standard_clauses
+    # 🌟 생성된 표준 조항들로부터 서브청크 추출 및 검증 반환
+    valid_sub_chunks = _parse_sub_chunks(standard_clauses)
+    
+    return standard_clauses, valid_sub_chunks
 
 
 if __name__ == "__main__":
     import config
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
 
     FILENAME_CONTRACT = {
         "201231_SW종사자_기간제,단시간__표준근로계약서.md": ContractType.SW_EMPLOYMENT,
@@ -256,13 +314,22 @@ if __name__ == "__main__":
         version = f"20{md_file.name[:2]}"
 
         logging.info(f"[PROCESS] {md_file.name} -> {contract_type.value}")
-        standard_clauses = normalize_file(str(md_file), contract_type, version)
+        standard_clauses, sub_chunks = normalize_file(str(md_file), contract_type, version)
+        
+        # 1) standard_clauses JSON 저장
         json_data = [sc.model_dump() for sc in standard_clauses]
-
         out_name = f"standard_clauses.{contract_type.value.lower()}.{version}.json"
         out_path = normalized_dir / out_name
 
         with open(out_path, "w", encoding="utf-8") as f:
             json.dump(json_data, f, ensure_ascii=False, indent=2)
+
+        # 2) standard_sub_chunks JSON 저장
+        if sub_chunks:
+            sub_chunk_data = [sc.model_dump() for sc in sub_chunks]
+            sub_chunk_out_name = f"standard_sub_chunks.{contract_type.value.lower()}.{version}.json"
+            sub_chunk_out_path = normalized_dir / sub_chunk_out_name
+            with open(sub_chunk_out_path, "w", encoding="utf-8") as f:
+                json.dump(sub_chunk_data, f, ensure_ascii=False, indent=2)
 
     logging.info("[OK] 전체 정규화 완료!")

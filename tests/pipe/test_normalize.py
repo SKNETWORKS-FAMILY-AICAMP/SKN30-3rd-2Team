@@ -157,7 +157,7 @@ def test_normalize_file_표준조항_리스트_반환(tmp_path):
     md_file = tmp_path / "test.md"
     md_file.write_text(SMOKE_MD, encoding="utf-8")
 
-    clauses = normalize_file(str(md_file), ContractType.SW_FREELANCE, "2024")
+    clauses, _ = normalize_file(str(md_file), ContractType.SW_FREELANCE, "2024")
 
     assert len(clauses) == 2
     assert clauses[0].category == Category.PAYMENT
@@ -170,7 +170,7 @@ def test_normalize_file_clause_id_형식(tmp_path):
     md_file = tmp_path / "test.md"
     md_file.write_text(SMOKE_MD, encoding="utf-8")
 
-    clauses = normalize_file(str(md_file), ContractType.SW_FREELANCE, "2024")
+    clauses, _ = normalize_file(str(md_file), ContractType.SW_FREELANCE, "2024")
 
-    assert clauses[0].clause_id == "sw_freelance-art6"
-    assert clauses[1].clause_id == "sw_freelance-art17"
+    assert clauses[0].clause_id == "sw_freelance-2024-art6"
+    assert clauses[1].clause_id == "sw_freelance-2024-art17"
