@@ -30,6 +30,17 @@ class StandardClause(BaseModel):
     version: str
     """표준 계약서의 배포/개정 년도 버전 (예: "2020")"""
 
+class StandardSubChunk(BaseModel):
+    """거대 조항의 항·호 단위 서브청크 (coverage 체크 및 Chroma 인덱싱용)"""
+    sub_chunk_id: str
+    """서브청크 식별 아이디 (예: "sw_freelance-art58-sub01")"""
+    parent_clause_id: str
+    """소속된 부모 조항의 식별 아이디 (예: "sw_freelance-art58")"""
+    sub_chunk_index: int
+    """부모 조항 내에서의 항 순서 (0-based)"""
+    text: str
+    """서브청크의 본문 텍스트"""
+
 class ClauseRelation(BaseModel):
     """[고도화 A] 조항 의존성 그래프의 category 레벨 엣지 (data/03_normalized/clause_relations.json)"""
     source_category: Category

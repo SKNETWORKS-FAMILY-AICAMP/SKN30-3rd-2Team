@@ -47,3 +47,16 @@ CREATE TABLE IF NOT EXISTS toxic_patterns (
     title      TEXT NOT NULL,         -- 패턴 요약 제목
     text       TEXT NOT NULL          -- 독소조항 대표 문안 (검색 매칭 기준)
 );
+
+-- -----------------------------------------------------------------
+-- 4) 거대 조항 서브청크 (기획서 고도화 G) — 커버리지 체크 및 롤업용
+-- -----------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS standard_sub_chunks (
+    sub_chunk_id     TEXT PRIMARY KEY,  -- 예: sw_freelance-art58-sub01
+    parent_clause_id TEXT NOT NULL,     -- FK → standard_clauses.clause_id
+    sub_chunk_index  INTEGER NOT NULL,  -- 항 순서 (0-based)
+    text             TEXT NOT NULL,
+    FOREIGN KEY (parent_clause_id) REFERENCES standard_clauses(clause_id)
+);
+CREATE INDEX IF NOT EXISTS idx_sub_parent ON standard_sub_chunks(parent_clause_id);
+
