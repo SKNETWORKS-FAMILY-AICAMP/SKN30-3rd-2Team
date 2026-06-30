@@ -136,6 +136,9 @@ normalize:
 build-index:
     uv run python "src/pipe/build_index.py"
 
+convert:
+    uv run python "src/pipe/convert.py"
+
 # ----------------------------------------------------
 # 🚀 실행 단축키
 # ----------------------------------------------------

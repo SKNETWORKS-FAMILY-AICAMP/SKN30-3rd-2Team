@@ -1,17 +1,7 @@
 [
   {
     "source_category": "IP_OWNERSHIP",
-    "target_category": "DERIVATIVE_WORK",
-    "relation_type": "RISK_PROPAGATION"
-  },
-  {
-    "source_category": "IP_OWNERSHIP",
     "target_category": "LIABILITY",
-    "relation_type": "RISK_PROPAGATION"
-  },
-  {
-    "source_category": "DERIVATIVE_WORK",
-    "target_category": "IP_OWNERSHIP",
     "relation_type": "RISK_PROPAGATION"
   },
   {

@@ -1,3 +1,4 @@
+from chromadb import Collection
 import logging
 import re
 import threading
@@ -36,7 +37,7 @@ class VectorManager:
         self._bm25_docs = {}     # {cache_key: List[Dict]}
         self._lock = threading.Lock()
 
-    def get_collection(self, collection_name: str):
+    def get_collection(self, collection_name: str) -> Collection:
         """지정한 이름의 Chroma DB 컬렉션을 가져오거나 새로 생성합니다."""
         return self.client.get_or_create_collection(name=collection_name)
 

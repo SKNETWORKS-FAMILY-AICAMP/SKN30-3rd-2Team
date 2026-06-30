@@ -29,7 +29,7 @@ packages = ["src" ,"tests", "eval"]
 # src/ → `from contracts...`, `from core import ...` / "." → 루트의 `eval` 패키지 import
 pythonpath = ["src", "."]
 testpaths = ["tests"]
-addopts = "-v"
+addopts = "-v -m 'not integration'"
 markers = [
     "integration: 외부 DB·모델 필요 — CI에서 별도 실행",
 ]
