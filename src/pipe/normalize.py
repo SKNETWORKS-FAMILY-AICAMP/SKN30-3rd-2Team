@@ -201,6 +201,7 @@ def normalize_file(md_path: str, contract_type: ContractType, version: str) -> L
     file_name = os.path.basename(md_path)
     clauses = split_markdown_clauses(md_text)
     standard_clauses = []
+    seen_ids = set()
     
     for clause in clauses:
         try:
@@ -212,7 +213,14 @@ def normalize_file(md_path: str, contract_type: ContractType, version: str) -> L
         match = re.search(r"제(\d+)조", clause.num)
         n = match.group(1) if match else str(clause.idx)
         
-        clause_id = f"{contract_type.value.lower()}-art{n}"
+        base_id = f"{contract_type.value.lower()}-art{n}"
+        clause_id = base_id
+        suffix = 2
+        while clause_id in seen_ids:
+            clause_id = f"{base_id}_{suffix}"
+            suffix += 1
+        seen_ids.add(clause_id)
+        
         source = f"{file_name} / {clause.num}"
         
         sc = StandardClause(

@@ -116,8 +116,8 @@
 
 ## 4. 완료 조건 (DoD)
 
-- [ ] `01.CREATE_TABLE.sql`에 `standard_sub_chunks` 테이블 추가 및 `models.py`에 `StandardSubChunk` 모델 추가
-- [ ] 거대 조항 분할 조건(500자 초과 OR 항·호 기호 3개 이상) `build_index.py` 반영 + SQLite·Chroma 적재 검증
+- [x] `01.CREATE_TABLE.sql`에 `standard_sub_chunks` 테이블 추가 및 `models.py`에 `StandardSubChunk` 모델 추가
+- [x] 거대 조항 분할 조건(500자 초과 OR 항·호 기호 3개 이상) `build_index.py` 반영 + SQLite·Chroma 적재 검증
 - [ ] `vector_manager.py` Max Roll-up 검색 로직 구현 및 단위 테스트 통과
 - [ ] `review_pipe.py`(또는 `core/coverage.py`) 커버리지 체크 로직 구현 및 단위 테스트 통과
 - [ ] 거대 조항 "항 삭제" 변형 골든셋 구축 완료
