@@ -1,72 +1,19 @@
-from typing import Protocol, List, Dict, Any, Optional
+from typing import Protocol, List
 from .models import Clause, StandardClause, GroundingLaw, DeviationResult
 from .enums import ContractType, Category
+
+# Embedder, Retriever는 adapter/port.py 로 이동 (adapter 제공 기능)
 
 class Parser(Protocol):
     """계약서 파일을 분석하여 조항(Clause) 리스트로 정규 분해하는 포트 인터페이스"""
     def parse(self, file_path: str) -> List[Clause]:
         """계약서 원본 파일(HWP/PDF 등)을 마크다운으로 추출하고 조항 단위로 정밀 분해하여 반환합니다.
-        
+
         Args:
             file_path: 분석 대상 파일의 절대 경로
-            
+
         Returns:
             분해된 개별 조항(Clause) 객체들의 목록
-        """
-        ...
-
-class Embedder(Protocol):
-    """밀도/희소 텍스트 임베딩 계산 및 크로스 인코더 재정렬을 수행하는 포트 인터페이스"""
-    def embed_query(self, text: str) -> List[float]:
-        """단일 쿼리(질의) 텍스트를 1024차원의 밀도(dense) 임베딩 벡터로 변환합니다.
-        
-        Args:
-            text: 임베딩 처리할 단일 텍스트 문구
-            
-        Returns:
-            1024차원의 부동 소수점 임베딩 벡터 리스트
-        """
-        ...
-        
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
-        """여러 문서 텍스트 목록을 1024차원의 밀도(dense) 임베딩 벡터 목록으로 일괄 변환합니다.
-        
-        Args:
-            texts: 임베딩 처리할 여러 문서들의 텍스트 목록
-            
-        Returns:
-            각 문서의 1024차원 임베딩 벡터를 담은 2차원 리스트
-        """
-        ...
-        
-    def compute_similarity(self, query: str, documents: List[str]) -> List[float]:
-        """질의 텍스트와 여러 문서들 간의 코사인 유사도(Cosine Similarity)를 계산해 반환합니다.
-        
-        Args:
-            query: 기준이 되는 질의(쿼리) 텍스트
-            documents: 유사도를 비교할 대상 문서들의 텍스트 목록
-            
-        Returns:
-            각 문서별 유사도 매칭 점수를 담은 실수 리스트
-        """
-        ...
-
-class Retriever(Protocol):
-    """벡터 데이터베이스(ChromaDB) 및 어휘 색인(BM25)을 통해 유사 조항을 검색하는 포트 인터페이스"""
-    def search(
-        self, collection_name: str, query: str, search_type: str = "hybrid", metadata_filter: Optional[Dict[str, Any]] = None, top_k: int = 5
-    ) -> List[Dict[str, Any]]:
-        """색인된 데이터베이스에서 특정 질의와 의미적/키워드적으로 가장 잘 매칭되는 조항들을 검색합니다.
-        
-        Args:
-            collection_name: 검색 대상 데이터베이스 컬렉션 이름 (예: "standard_clauses")
-            query: 검색을 유도할 질의(쿼리) 텍스트
-            search_type: 검색 방식 (예: "hybrid", "dense", "bm25")
-            metadata_filter: 특정 계약 유형이나 버전을 필터링할 메타데이터 조건 (옵션)
-            top_k: 검색해서 가져올 최상위 후보군의 갯수
-            
-        Returns:
-            유사도 점수와 식별 메타데이터를 포함한 검색 결과 사전(Dict) 목록
         """
         ...
 

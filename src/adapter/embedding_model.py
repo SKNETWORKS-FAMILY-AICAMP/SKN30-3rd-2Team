@@ -7,7 +7,7 @@ from sentence_transformers import SentenceTransformer, CrossEncoder
 
 class Bgem3Embedder:
     """
-    BAAI/bge-m3 모델을 사용한 임베딩 추출 유틸리티 클래스입니다.
+    dragonkue/BGE-m3-ko 모델을 사용한 임베딩 추출 유틸리티 클래스입니다.
     SentenceTransformer 라이브러리를 사용하며, 싱글톤 패턴 및 지연 로딩(Lazy Loading)을 통해 
     리소스 낭비 및 메모리 중복 적재를 방지합니다.
     """
@@ -75,7 +75,7 @@ class Bgem3Embedder:
 
 class BgeReranker:
     """
-    BAAI/bge-reranker-v2-m3 모델을 사용한 리랭킹(재정렬) 유틸리티 클래스입니다.
+    dragonkue/bge-reranker-v2-m3-ko 모델을 사용한 리랭킹(재정렬) 유틸리티 클래스입니다.
     SentenceTransformer의 CrossEncoder를 사용하며, 싱글톤 및 지연 로딩을 지원합니다.
     """
     _instance = None
@@ -165,5 +165,6 @@ class BgeReranker:
 # 1. query_vector = embedder.embed_query("제1조...")
 # 2. reranked_results = reranker.rerank("제1조...", results)
 # =================================================================
+
 embedder = Bgem3Embedder()
 reranker = BgeReranker()

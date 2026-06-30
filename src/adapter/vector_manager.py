@@ -10,7 +10,7 @@ from rank_bm25 import BM25Okapi
 from kiwipiepy import Kiwi
 
 from config import BASE_DIR
-from .embedding_model import embedder
+from .port import Embedder
 
 # Kiwi 형태소 분석기 초기화 (글로벌 단일 인스턴스)
 kiwi = Kiwi()
@@ -21,7 +21,8 @@ class VectorManager:
     도메인 의존성(특정 계약 종류, 테이블 구조 등)을 배제하고 컬렉션 단위의 범용적인 문서 벡터 관리를 지원합니다.
     """
     
-    def __init__(self):
+    def __init__(self, embedder: Embedder):
+        self._embedder = embedder
         # 1. 크로마 DB 경로 설정 및 클라이언트 초기화
         self.persist_dir = str(BASE_DIR / "data" / "migration")
         self.settings = Settings(
@@ -121,7 +122,7 @@ class VectorManager:
         collection = self.get_collection(collection_name)
         
         # Dense 임베딩 추출
-        embeddings = embedder.embed_documents(documents)
+        embeddings = self._embedder.embed_documents(documents)
         
         # Chroma 데이터 저장
         collection.add(
@@ -150,7 +151,7 @@ class VectorManager:
         collection = self.get_collection(collection_name)
         
         # Dense 임베딩 추출
-        embeddings = embedder.embed_documents(documents)
+        embeddings = self._embedder.embed_documents(documents)
         
         # Chroma 데이터 저장
         collection.upsert(
@@ -183,7 +184,7 @@ class VectorManager:
         self, collection_name: str, query: str, metadata_filter: Optional[Dict[str, Any]] = None, top_k: int = 5
     ) -> List[Dict[str, Any]]:
         """Dense 임베딩 코사인 벡터 비교 기반의 밀도(dense) 조회를 수행합니다."""
-        query_vector = embedder.embed_query(query)
+        query_vector = self._embedder.embed_query(query)
         collection = self.get_collection(collection_name)
         
         results = collection.query(
@@ -332,8 +333,3 @@ class VectorManager:
         return matched_docs
 
 
-# =================================================================
-# 팀원 공용 벡터 데이터베이스 매니저 객체 (Single Instance)
-# 사용법: from adapter import vector
-# =================================================================
-vector = VectorManager()

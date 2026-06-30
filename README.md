@@ -82,7 +82,7 @@ flowchart LR
 
 | 영역 | 사용 도구 |
 | --- | --- |
-| 임베딩 / 리랭커 | `BAAI/bge-m3` · `BAAI/bge-reranker-v2-m3` |
+| 임베딩 / 리랭커 | `dragonkue/BGE-m3-ko` · `dragonkue/bge-reranker-v2-m3-ko` |
 | 벡터 검색 | Chroma (dense) + `rank_bm25` + Kiwi 형태소 (sparse) + RRF 융합 |
 | 조항 분해(청킹) | LlamaIndex `MarkdownNodeParser` |
 | 저장소 | SQLite (조항·관계·독소패턴) |

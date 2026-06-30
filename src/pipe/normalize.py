@@ -10,8 +10,12 @@
 import json
 import os
 import re
+import sys
 from pathlib import Path
 from typing import List
+
+# src/ 패키지 절대 경로 추가 (스크립트로 직접 실행하기 위함)
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from contracts.enums import ContractType, Category
 from contracts.models import Clause, StandardClause
@@ -21,6 +25,7 @@ from adapter import splitter, embedder
 HEADER_RE = re.compile(r"^#*\s*(제\d+조)\s*[\(\（]?\s*([^\)\）\n]*)")
 
 # ── 모듈 전역 싱글톤 ────────────────────────────────────────────────────────
+_embedder = embedder
 # build_category_vectors() 호출 후 채워집니다.
 _category_vectors: dict[Category, list[float]] | None = None
 
@@ -121,7 +126,18 @@ def build_category_vectors() -> None:
         - _embedder.embed_documents(cat.anchors) 로 앵커 임베딩 목록을 얻습니다.
         - numpy 로 평균(axis=0)을 내어 카테고리 대표 벡터를 만듭니다.
     """
-    raise NotImplementedError
+    global _category_vectors
+    if _category_vectors is not None:
+        return
+        
+    import numpy as np
+    _category_vectors = {}
+    for cat in Category:
+        if not hasattr(cat, 'anchors') or not cat.anchors:
+            continue
+        vectors = _embedder.embed_documents(cat.anchors)
+        avg_vector = np.mean(vectors, axis=0)
+        _category_vectors[cat] = avg_vector.tolist()
 
 
 def label_category(num: str, title: str, text: str) -> Category:
@@ -138,7 +154,31 @@ def label_category(num: str, title: str, text: str) -> Category:
         - _embedder.embed_documents([query])[0] 으로 쿼리 벡터를 얻습니다.
         - 임베딩이 L2 정규화되어 있다면 내적(dot product) = 코사인 유사도입니다.
     """
-    raise NotImplementedError
+    if _category_vectors is None:
+        raise RuntimeError("Category vectors are not initialized")
+        
+    import numpy as np
+    query = f"{title} {text[:200]}"
+    query_vector = _embedder.embed_documents([query])[0]
+    
+    q_vec = np.array(query_vector)
+    
+    best_cat = None
+    best_score = -1.0
+    
+    for cat, vec in _category_vectors.items():
+        c_vec = np.array(vec)
+        # L2 정규화된 임베딩이므로 내적으로 코사인 유사도 계산
+        sim = np.dot(q_vec, c_vec)
+            
+        if sim > best_score:
+            best_score = sim
+            best_cat = cat
+            
+    if best_score < 0.45 or best_cat is None:
+        raise ValueError(f"적절한 카테고리를 찾을 수 없습니다. (score: {best_score:.3f})")
+        
+    return best_cat
 
 
 def normalize_file(md_path: str, contract_type: ContractType, version: str) -> List[StandardClause]:
@@ -155,27 +195,77 @@ def normalize_file(md_path: str, contract_type: ContractType, version: str) -> L
     구현 힌트:
         split_markdown_clauses → label_category → StandardClause 조립
     """
-    raise NotImplementedError
+    with open(md_path, "r", encoding="utf-8") as f:
+        md_text = f.read()
+        
+    file_name = os.path.basename(md_path)
+    clauses = split_markdown_clauses(md_text)
+    standard_clauses = []
+    seen_ids = set()
+    
+    for clause in clauses:
+        try:
+            category = label_category(clause.num, clause.title, clause.text)
+        except ValueError as e:
+            print(f"  [SKIP] {clause.num} - score 미달")
+            continue
+        
+        match = re.search(r"제(\d+)조", clause.num)
+        n = match.group(1) if match else str(clause.idx)
+        
+        base_id = f"{contract_type.value.lower()}-art{n}"
+        clause_id = base_id
+        suffix = 2
+        while clause_id in seen_ids:
+            clause_id = f"{base_id}_{suffix}"
+            suffix += 1
+        seen_ids.add(clause_id)
+        
+        source = f"{file_name} / {clause.num}"
+        
+        sc = StandardClause(
+            clause_id=clause_id,
+            contract_type=contract_type,
+            category=category,
+            title=clause.title,
+            text=clause.text,
+            source=source,
+            version=version
+        )
+        standard_clauses.append(sc)
+        
+    return standard_clauses
 
 
 if __name__ == "__main__":
-    import os
-    import json
-    from pathlib import Path
+    import config
 
-    converted_dir = Path("data/02_converted")
-    normalized_dir = Path("data/03_normalized")
+    FILENAME_CONTRACT = {
+        "201231_SW종사자_기간제,단시간__표준근로계약서.md": ContractType.SW_EMPLOYMENT,
+        "201231_SW종사자_표준도급계약서.md": ContractType.SW_FREELANCE,
+        "221228_상용소프트웨어_공급개발구축업.md": ContractType.SI_SUBCONTRACT,
+        "221228_상용소프트웨어_유지관리업종.md": ContractType.SM_SUBCONTRACT,
+        "251221_상용소프트웨어공급개발구축업종(비밀유지계약서_통합_및_안전등_추가).md": ContractType.SI_SUBCONTRACT,
+        "251221_상용소프트웨어유지관리업종(비밀유지계약서_통합_및_안전_추가).md": ContractType.SM_SUBCONTRACT
+    }
+
+    converted_dir = config.BASE_DIR / "data" / "02_converted"
+    normalized_dir = config.BASE_DIR / "data" / "03_normalized"
     normalized_dir.mkdir(parents=True, exist_ok=True)
 
-    for md_file in converted_dir.glob("*.md"):
-        contract_type = ContractType.SW_FREELANCE
-        if "예술" in md_file.name:
-            contract_type = ContractType.ARTS_SERVICE
-        elif "기간제" in md_file.name or "근로" in md_file.name:
-            contract_type = ContractType.SW_EMPLOYMENT
+    # 1. 전역 카테고리 벡터 초기화 (필수)
+    print("[INFO] AI 임베딩 카테고리 벡터를 초기화합니다...")
+    build_category_vectors()
 
+    for md_file in converted_dir.glob("*.md"):
+        # 명시적 실패(Fail-fast)
+        if md_file.name not in FILENAME_CONTRACT:
+            raise KeyError(f"정의되지 않은 계약서 파일입니다: {md_file.name}. FILENAME_CONTRACT 사전에 추가하세요.")
+            
+        contract_type = FILENAME_CONTRACT[md_file.name]
         version = "2024"
 
+        print(f"[PROCESS] {md_file.name} -> {contract_type.value}")
         standard_clauses = normalize_file(str(md_file), contract_type, version)
         json_data = [sc.model_dump() for sc in standard_clauses]
 
@@ -185,4 +275,4 @@ if __name__ == "__main__":
         with open(out_path, "w", encoding="utf-8") as f:
             json.dump(json_data, f, ensure_ascii=False, indent=2)
 
-    print("[OK] 정규화 완료!")
+    print("[OK] 전체 정규화 완료!")

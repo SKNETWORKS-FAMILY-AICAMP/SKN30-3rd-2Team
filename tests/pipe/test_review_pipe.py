@@ -30,7 +30,8 @@ import pytest
 from typing import List, Dict, Any, Optional
 from contracts.enums import ContractType, Category, Deviation
 from contracts.models import Clause, StandardClause, GroundingLaw
-from contracts.ports import Retriever, Grounder
+from adapter.port import Retriever
+from contracts.ports import Grounder
 
 pytestmark = pytest.mark.skip(reason="TDD 규격 — 담당: 팀원 C/리드. 구현 시작 시 이 줄 삭제")
 
@@ -53,7 +54,7 @@ ALL_STANDARD = [ART20, ART99_UNMATCHED]
 class FakeRetriever(Retriever):
     """'저작권' 질의에는 art20 을 강하게 반환, 그 외에는 빈 결과(→ NO_MATCH)."""
     def search(
-        self, collection_name: str, query: str, search_type: str = "hybrid", metadata_filter: Optional[Dict[str, Any]] = None, top_k: int = 5
+        self, _collection_name: str, query: str, _search_type: str = "hybrid", _metadata_filter: Optional[Dict[str, Any]] = None, _top_k: int = 5
     ) -> List[Dict[str, Any]]:
         if "저작권" in query or "지식재산" in query:
             return [{
@@ -66,10 +67,10 @@ class FakeRetriever(Retriever):
 
 
 class FakeGrounder(Grounder):
-    def get_grounding(self, category: Category) -> List[GroundingLaw]:
+    def get_grounding(self, _category: Category) -> List[GroundingLaw]:
         return [GroundingLaw(법령명="저작권법", 조번호="제5조", 본문="...", 출처="국가법령정보")]
 
-    def query_law(self, clause_text: str) -> List[GroundingLaw]:
+    def query_law(self, _clause_text: str) -> List[GroundingLaw]:
         return []
 
 

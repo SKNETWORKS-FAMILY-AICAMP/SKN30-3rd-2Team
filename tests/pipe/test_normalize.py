@@ -14,7 +14,7 @@ import pytest
 from contracts.enums import Category, ContractType
 from contracts.models import Clause
 
-pytestmark = pytest.mark.skip(reason="리뷰 반영 후 skip 삭제")
+# pytestmark = pytest.mark.skip(reason="리뷰 반영 후 skip 삭제")
 
 # 파일 내 모든 테스트를 통합 테스트(integration)로 지정
 pytestmark = pytest.mark.integration
@@ -58,7 +58,7 @@ def test_조번호와_제목_추출():
 
 # ── label_category ────────────────────────────────────────────────────────────
 
-def test_저작권_조항은_IP_OWNERSHIP(patch_globals):
+def test_저작권_조항은_IP_OWNERSHIP():
     from pipe.normalize import label_category
     assert label_category(
         "제20조", "지식재산권의 귀속",
@@ -66,7 +66,7 @@ def test_저작권_조항은_IP_OWNERSHIP(patch_globals):
     ) == Category.IP_OWNERSHIP
 
 
-def test_보수_조항은_PAYMENT(patch_globals):
+def test_보수_조항은_PAYMENT():
     from pipe.normalize import label_category
     assert label_category(
         "제6조", "보수",
@@ -74,7 +74,7 @@ def test_보수_조항은_PAYMENT(patch_globals):
     ) == Category.PAYMENT
 
 
-def test_비밀준수_조항은_CONFIDENTIALITY(patch_globals):
+def test_비밀준수_조항은_CONFIDENTIALITY():
     from pipe.normalize import label_category
     assert label_category(
         "제17조", "비밀준수",
@@ -82,7 +82,7 @@ def test_비밀준수_조항은_CONFIDENTIALITY(patch_globals):
     ) == Category.CONFIDENTIALITY
 
 
-def test_하자담보_조항은_WARRANTY_PAYMENT_아님(patch_globals):
+def test_하자담보_조항은_WARRANTY_PAYMENT_아님():
     """
     회귀 테스트: "하자보수"가 본문에 있어도 PAYMENT 가 아닌 WARRANTY 로 분류되어야 합니다.
     키워드 하드코딩("보수" in text)은 이 테스트를 통과하지 못합니다.
@@ -96,7 +96,7 @@ def test_하자담보_조항은_WARRANTY_PAYMENT_아님(patch_globals):
     assert result != Category.PAYMENT
 
 
-def test_계약기간_조항은_CONTRACT_PERIOD(patch_globals):
+def test_계약기간_조항은_CONTRACT_PERIOD():
     from pipe.normalize import label_category
     assert label_category(
         "제5조", "계약기간",
@@ -104,7 +104,7 @@ def test_계약기간_조항은_CONTRACT_PERIOD(patch_globals):
     ) == Category.CONTRACT_PERIOD
 
 
-def test_납품검수_조항은_DELIVERY_INSPECTION(patch_globals):
+def test_납품검수_조항은_DELIVERY_INSPECTION():
     from pipe.normalize import label_category
     assert label_category(
         "제11조", "납품",
@@ -112,7 +112,7 @@ def test_납품검수_조항은_DELIVERY_INSPECTION(patch_globals):
     ) == Category.DELIVERY_INSPECTION
 
 
-def test_재하도급_조항은_SUBCONTRACTING(patch_globals):
+def test_재하도급_조항은_SUBCONTRACTING():
     from pipe.normalize import label_category
     assert label_category(
         "제15조", "재하도급 금지",
@@ -120,7 +120,7 @@ def test_재하도급_조항은_SUBCONTRACTING(patch_globals):
     ) == Category.SUBCONTRACTING
 
 
-def test_손해배상_조항은_LIABILITY(patch_globals):
+def test_손해배상_조항은_LIABILITY():
     from pipe.normalize import label_category
     assert label_category(
         "제18조", "손해배상",
@@ -128,7 +128,7 @@ def test_손해배상_조항은_LIABILITY(patch_globals):
     ) == Category.LIABILITY
 
 
-def test_미분류_조항은_ValueError(patch_globals):
+def test_미분류_조항은_ValueError():
     """
     어떤 카테고리와도 유사도가 낮은 조항은 ValueError 를 발생시켜야 합니다.
     SCOPE_SOW 묵시적 fallback 금지 (AGENTS.md "조용한 실패 금지").

@@ -109,12 +109,12 @@ uv-setup:
 
 # uv 프로젝트 환경에서 BGE 모델 2종을 다운로드합니다. (이미 있으면 건너뜁니다)
 download-models:
-    @echo "=== Checking and downloading BAAI/bge-m3 ==="
-    uv run hf download BAAI/bge-m3
+    @echo "=== Checking and downloading dragonkue/BGE-m3-ko ==="
+    uv run hf download dragonkue/BGE-m3-ko
 
     @echo ""
-    @echo "=== Checking and downloading BAAI/bge-reranker-v2-m3 ==="
-    uv run hf download BAAI/bge-reranker-v2-m3
+    @echo "=== Checking and downloading dragonkue/bge-reranker-v2-m3-ko ==="
+    uv run hf download dragonkue/bge-reranker-v2-m3-ko
 # ----------------------------------------------------
 # 🗄  DB / 인덱스 재생성 (normalize JSON/SQL = 진실의 원천)
 # ----------------------------------------------------
