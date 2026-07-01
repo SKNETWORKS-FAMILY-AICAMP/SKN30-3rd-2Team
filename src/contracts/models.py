@@ -92,3 +92,9 @@ class DeviationResult(BaseModel):
     """이 조항에서 감지된 불공정 독소조항 패턴 목록"""
     related_risk_clauses: List[str] = Field(default_factory=list)
     """해당 조항 변경으로 인해 함께 검토해야 할 연관 표준 조항 ID 목록"""
+    uncovered_sub_chunk_ids: List[str] = Field(default_factory=list)
+    """커버리지 체크로 NONE→CHANGED 상향된 조항에 한해, 사용자 조항에서 대응이 없는
+    **표준** 서브청크 id 목록 (예: ["sw_freelance-art58-sub03"]).
+    이 id는 표준 측(삭제 의심 항)이며 사용자 측 항이 아님.
+    커버리지 체크가 수행되지 않은 조항(EXTRA·MISSING·NO_MATCH·단순 CHANGED 등)은 항상 [].
+    2차 LLM 은 deviation==CHANGED 일 때만 이 필드를 읽어 검토 범위를 해당 항으로 좁힘."""

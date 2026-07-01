@@ -174,3 +174,50 @@ def test_normalize_file_clause_id_형식(tmp_path):
 
     assert clauses[0].clause_id == "sw_freelance-2024-art6"
     assert clauses[1].clause_id == "sw_freelance-2024-art17"
+
+# ── normalize_file — 서브청크 생성 통합 테스트 ──────────────────────────────
+
+LARGE_CLAUSE_MD = """\
+### 제58조(하도급대금의 지급)
+① 원사업자는 수급사업자에게 대금을 지급하여야 한다.
+② 원사업자는 선급금을 지급하는 경우에는 지급일부터 15일 이내에 지급하여야 한다.
+③ 원사업자는 목적물 등의 수령일부터 60일 이내에 하도급대금을 지급하여야 한다.
+"""
+
+
+def test_normalize_file_거대조항_서브청크_2개이상(tmp_path):
+    """항·호가 3개인 거대 조항은 서브청크가 2개 이상 생성됩니다."""
+    from pipe.normalize import normalize_file
+    md_file = tmp_path / "test.md"
+    md_file.write_text(LARGE_CLAUSE_MD, encoding="utf-8")
+
+    _, sub_chunks = normalize_file(str(md_file), ContractType.SW_FREELANCE, "2024")
+
+    assert len(sub_chunks) >= 2
+    parent_ids = {s.parent_clause_id for s in sub_chunks}
+    assert len(parent_ids) == 1
+
+
+def test_normalize_file_서브청크_인덱스_연속(tmp_path):
+    """서브청크 인덱스는 0부터 순서대로 부여됩니다."""
+    from pipe.normalize import normalize_file
+    md_file = tmp_path / "test.md"
+    md_file.write_text(LARGE_CLAUSE_MD, encoding="utf-8")
+
+    _, sub_chunks = normalize_file(str(md_file), ContractType.SW_FREELANCE, "2024")
+
+    indices = sorted(s.sub_chunk_index for s in sub_chunks)
+    assert indices == list(range(len(sub_chunks)))
+
+
+def test_normalize_file_단순조항_서브청크_정확히_1개(tmp_path):
+    """조건 미달 단순 조항은 서브청크가 정확히 1개(전체 텍스트 래핑)입니다."""
+    from pipe.normalize import normalize_file
+    md_file = tmp_path / "test.md"
+    md_file.write_text(SMOKE_MD, encoding="utf-8")
+
+    _, sub_chunks = normalize_file(str(md_file), ContractType.SW_FREELANCE, "2024")
+
+    # SMOKE_MD 조항 2개 각각 서브청크 1개 = 합계 2개
+    assert len(sub_chunks) == 2
+    assert all(s.sub_chunk_index == 0 for s in sub_chunks)

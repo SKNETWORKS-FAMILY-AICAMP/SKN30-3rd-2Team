@@ -16,7 +16,7 @@ roll_up_sub_chunks·detect_toxic_patterns)를 조립하고, 외부 작업은 por
 from typing import Any, Dict, List
 
 from contracts.enums import ContractType, Category, Deviation, ToxicPattern
-from contracts.models import Clause, StandardClause, GroundingLaw, DeviationResult
+from contracts.models import Clause, StandardClause, StandardSubChunk, GroundingLaw, DeviationResult
 from pipe.review_pipe import review_contract
 
 
@@ -173,3 +173,134 @@ def test_서브청크_rollup으로_부모조항_매칭():
     results = _review([clause], retriever=FakeSubChunkRetriever())
     matched = [r for r in results if r.matched_standard and r.matched_standard.clause_id == "sw_freelance-art20"]
     assert matched and matched[0].deviation != Deviation.NO_MATCH
+
+
+# ── 커버리지 체크 통합 테스트 ──────────────────────────────────────────────────
+#
+# 시나리오: 항이 3개(①②③)인 거대 조항(ART58)에서 ②(이자 항)가 사용자 조항에 없음.
+# 본문 유사도 기준으로는 NONE 판정되지만, 커버리지 체크가 미커버를 잡아 CHANGED 로 상향.
+
+ART58 = StandardClause(
+    clause_id="sw_freelance-art58", contract_type=ContractType.SW_FREELANCE,
+    category=Category.PAYMENT, title="하도급대금 지급",
+    text="① 원사업자는 대금을 지급한다.\n② 지연 시 이자를 부과한다.\n③ 기한은 60일이다.",
+    source="s/제58조", version="2020",
+)
+_SUB_00 = StandardSubChunk(
+    sub_chunk_id="sw_freelance-art58-sub00", parent_clause_id="sw_freelance-art58",
+    sub_chunk_index=0, text="① 원사업자는 대금을 지급한다.",
+    contract_type=ContractType.SW_FREELANCE,
+)
+_SUB_01 = StandardSubChunk(
+    sub_chunk_id="sw_freelance-art58-sub01", parent_clause_id="sw_freelance-art58",
+    sub_chunk_index=1, text="② 지연 시 이자를 부과한다.",
+    contract_type=ContractType.SW_FREELANCE,
+)
+_SUB_02 = StandardSubChunk(
+    sub_chunk_id="sw_freelance-art58-sub02", parent_clause_id="sw_freelance-art58",
+    sub_chunk_index=2, text="③ 기한은 60일이다.",
+    contract_type=ContractType.SW_FREELANCE,
+)
+_ART58_HIT = {
+    "id": "sw_freelance-art58", "text": ART58.text,
+    "contract_type": "SW_FREELANCE", "category": "PAYMENT",
+    "title": ART58.title, "source": ART58.source, "version": "2020",
+    "fusion_score": 0.03,
+}
+_ART58_SUB_MAP = {"sw_freelance-art58": [_SUB_00, _SUB_01, _SUB_02]}
+_ALL_STD_WITH_58 = [ART20, ART58, ART99_UNMATCHED]
+
+
+class _Art58Retriever(FakeRetriever):
+    """standard_clauses 쿼리에 항상 ART58 을 반환하는 검색 fake."""
+    def _search_one(self, collection_name, query):
+        if collection_name == "standard_clauses":
+            return [dict(_ART58_HIT)]
+        return []
+
+
+class _PartialCoverageReranker(_Reranker):
+    """rerank 는 고점수, compute_scores 는 '이자' 항(SUB_01) 쿼리만 저점수.
+
+    커버리지 체크 시 SUB_01 이 미커버로 판정되도록 시뮬레이션합니다.
+    나머지 항(SUB_00·SUB_02)과 일반 rerank 는 HIGH_RERANKER 와 동일하게 동작합니다.
+    """
+    def __init__(self):
+        super().__init__(8.0)
+
+    def compute_scores(self, query: str, documents: list) -> list:
+        # SUB_01.text("② 지연 시 이자를 부과한다.") 가 쿼리일 때 저점수
+        if "이자" in query:
+            return [-8.0] * len(documents)
+        return [8.0] * len(documents)
+
+
+def _review58(clauses, *, sub_map=_ART58_SUB_MAP, reranker=None, use_coverage=True):
+    return review_contract(
+        clauses, ContractType.SW_FREELANCE,
+        retriever=_Art58Retriever(),
+        reranker=reranker or _PartialCoverageReranker(),
+        grounder=FakeGrounder(),
+        all_standard_clauses=_ALL_STD_WITH_58,
+        all_standard_sub_chunks=sub_map,
+        coverage_threshold=0.5,
+        use_coverage=use_coverage,
+    )
+
+
+def test_서브청크_미커버_NONE에서_CHANGED_상향():
+    """표준 서브청크 1개 미커버 → NONE 판정 조항이 CHANGED 로 상향됨."""
+    clause = Clause(idx=1, num="제58조", title="하도급대금", text=ART58.text)
+    results = _review58([clause])
+    target = next(r for r in results if r.user_clause == clause.text)
+    assert target.deviation == Deviation.CHANGED
+
+
+def test_서브청크_미커버_uncovered_ids_채워짐():
+    """CHANGED 상향 시 미커버된 표준 항 id 가 uncovered_sub_chunk_ids 에 포함됨."""
+    clause = Clause(idx=1, num="제58조", title="하도급대금", text=ART58.text)
+    results = _review58([clause])
+    target = next(r for r in results if r.user_clause == clause.text)
+    assert "sw_freelance-art58-sub01" in target.uncovered_sub_chunk_ids
+
+
+def test_서브청크_미커버_grounding_부착():
+    """CHANGED 상향 시 법령 근거가 grounding 에 부착됨."""
+    clause = Clause(idx=1, num="제58조", title="하도급대금", text=ART58.text)
+    results = _review58([clause])
+    target = next(r for r in results if r.user_clause == clause.text)
+    assert len(target.grounding) >= 1
+
+
+def test_서브청크_전체_커버_NONE_유지():
+    """모든 표준 서브청크가 커버됨 → NONE 유지, uncovered_ids 비어있음."""
+    clause = Clause(idx=1, num="제58조", title="하도급대금", text=ART58.text)
+    results = _review58([clause], reranker=HIGH_RERANKER)
+    target = next(r for r in results if r.user_clause == clause.text)
+    assert target.deviation == Deviation.NONE
+    assert target.uncovered_sub_chunk_ids == []
+
+
+def test_use_coverage_false_NONE_유지():
+    """use_coverage=False 이면 커버리지 체크 전체 스킵 → NONE 유지 (ablation)."""
+    clause = Clause(idx=1, num="제58조", title="하도급대금", text=ART58.text)
+    results = _review58([clause], use_coverage=False)
+    target = next(r for r in results if r.user_clause == clause.text)
+    assert target.deviation == Deviation.NONE
+    assert target.uncovered_sub_chunk_ids == []
+
+
+def test_서브청크_맵_미주입_NONE_유지():
+    """all_standard_sub_chunks=None 이면 커버리지 체크 없이 NONE 유지."""
+    clause = Clause(idx=1, num="제58조", title="하도급대금", text=ART58.text)
+    results = _review58([clause], sub_map=None)
+    target = next(r for r in results if r.user_clause == clause.text)
+    assert target.deviation == Deviation.NONE
+
+
+def test_서브청크_1개_조항_체크_스킵():
+    """std_subs < 2 이면 단순 조항으로 간주해 커버리지 체크 스킵 → NONE 유지."""
+    clause = Clause(idx=1, num="제58조", title="하도급대금", text=ART58.text)
+    results = _review58([clause], sub_map={"sw_freelance-art58": [_SUB_00]})
+    target = next(r for r in results if r.user_clause == clause.text)
+    assert target.deviation == Deviation.NONE

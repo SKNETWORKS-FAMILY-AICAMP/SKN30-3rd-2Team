@@ -56,9 +56,9 @@
 - 신규 파라미터: `coverage_threshold: float`(유사도 스케일, `match/change_threshold` 와 별개 — eval 로 캘리브레이션). `use_coverage: bool = True`(ablation).
 
 ## 미결정 / 사인오프 필요 (AGENTS.md §2)
-- **유사도 계산기**: Reranker 재사용(주입 무변경) vs Embedder 주입(시그니처 변경). → 권장은 Reranker 재사용.
-- **표준 항 공급**: 런타임 DB 조회 vs 사전 주입 맵.
-- 두 경우 모두 **동결 모델 변경은 없음**(CHANGED 재사용). 단 Embedder 주입 택 시 `review_contract` 시그니처 변경분만 합의.
+- **유사도 계산기**: Reranker 재사용(주입 무변경) vs Embedder 주입(시그니처 변경). → **채택: Reranker 재사용** ✅
+- **표준 항 공급**: 런타임 DB 조회 vs 사전 주입 맵. → **채택: `all_standard_sub_chunks` 사전 주입 맵** ✅
+- **미커버 서브청크 ID 노출 여부**: `DeviationResult.uncovered_sub_chunk_ids: List[str]` 필드 추가로 확정 ✅. NONE→CHANGED 상향 시에만 채워지며(표준 측 항 id), 나머지 조항은 항상 `[]`. 2차 LLM은 `deviation==CHANGED`일 때만 이 필드를 읽어 검토 범위를 좁힘.
 
 ## 완료 조건 (DoD)
 - [ ] 사용자 조항 런타임 항 분할기 구현 (오프라인과 공용 로직)

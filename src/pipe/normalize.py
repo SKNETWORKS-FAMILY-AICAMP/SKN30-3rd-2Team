@@ -22,6 +22,7 @@ from contracts.models import StandardSubChunk
 from contracts.enums import ContractType, Category
 from contracts.models import Clause, StandardClause
 from adapter import splitter, embedder
+from core.splitter import split_into_sub_chunks
 
 # "### 제12조(제목)" / "제12조 (제목)" 등에서 조번호·제목 추출 (도메인 규칙)
 HEADER_RE = re.compile(r"^#*\s*(제\d+조)\s*[\(\（]?\s*([^\)\）\n]*)")
@@ -137,57 +138,15 @@ def _maxpool_scores(q_vec: np.ndarray, categories: list[Category]) -> np.ndarray
 
 def _parse_sub_chunks(rows: list[StandardClause]) -> list[StandardSubChunk]:
     sub_chunks = []
-    
-    # 2. 거대 조항 서브청킹 로직
     for r in rows:
-        clause_id = r.clause_id
-        text = r.text
-        
-        symbols = re.findall(r"[①-⑳]", text)
-        nums = re.findall(r"^[0-9]+\.", text, flags=re.MULTILINE)
-        
-        # 500자 초과 OR 기호 3개 이상이면 쪼개기 (분할 조건)
-        if len(text) > 300 or (len(symbols) + len(nums)) >= 3:
-            parts = re.split(r"(^[①-⑳]|^[0-9]+\.)", text, flags=re.MULTILINE)
-            
-            current_chunk = parts[0].strip()
-            idx = 0
-            
-            if current_chunk:
-                sub_chunks.append(
-                    StandardSubChunk(
-                        sub_chunk_id=f"{clause_id}-sub{idx:02d}",
-                        parent_clause_id=clause_id,
-                        sub_chunk_index=idx,
-                        text=current_chunk,
-                        contract_type=r.contract_type,
-                    )
-                )
-                idx += 1
-                
-            for i in range(1, len(parts), 2):
-                symbol = parts[i]
-                content = parts[i+1] if i+1 < len(parts) else ""
-                chunk_text = (symbol + content).strip()
-                if chunk_text:
-                    sub_chunks.append(
-                        StandardSubChunk(
-                            sub_chunk_id=f"{clause_id}-sub{idx:02d}",
-                            parent_clause_id=clause_id,
-                            sub_chunk_index=idx,
-                            text=chunk_text,
-                            contract_type=r.contract_type,
-                        )
-                    )
-                    idx += 1
-        else:
-            # 쪼개지 않고 조 전체를 1청크로 유지
+        # 분할 조건·분할 로직은 core.splitter 공용 함수로 위임 (런타임과 동일 규칙 보장)
+        for idx, chunk_text in enumerate(split_into_sub_chunks(r.text)):
             sub_chunks.append(
                 StandardSubChunk(
-                    sub_chunk_id=f"{clause_id}-sub00",
-                    parent_clause_id=clause_id,
-                    sub_chunk_index=0,
-                    text=text,
+                    sub_chunk_id=f"{r.clause_id}-sub{idx:02d}",
+                    parent_clause_id=r.clause_id,
+                    sub_chunk_index=idx,
+                    text=chunk_text,
                     contract_type=r.contract_type,
                 )
             )
