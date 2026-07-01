@@ -113,3 +113,6 @@ if __name__ == "__main__":
 
     n_sub = build_sub_chunk_index()
     logging.info(f"[OK] Chroma 인덱스 적재 완료 (standard_sub_chunks): {n_sub}건")
+
+    n_toxic = build_toxic_index()
+    logging.info(f"[OK] Chroma 인덱스 적재 완료 (toxic_patterns): {n_toxic}건")

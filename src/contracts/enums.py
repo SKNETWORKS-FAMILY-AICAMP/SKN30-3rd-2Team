@@ -142,6 +142,14 @@ class ToxicPattern(str, Enum):
     """일방적인 과업 범위 변경 권한"""
     UNFAIR_DAMAGE_CLAIM = "UNFAIR_DAMAGE_CLAIM"
     """부당하게 과도한 손해배상 청구액 설정"""
+    UNILATERAL_INTERPRETATION = "UNILATERAL_INTERPRETATION"
+    """도급인의 일방적인 해석권"""
+    UNILATERAL_CANCELLATION = "UNILATERAL_CANCELLATION"
+    """일방적인 계약 취소"""
+    INDEFINITE_CONFIDENTIALITY = "INDEFINITE_CONFIDENTIALITY"
+    """불특정 기간 동안의 비밀유지 의무"""
+    UNPAID_ADDITIONAL_WORK = "UNPAID_ADDITIONAL_WORK"
+    """무보상 추가 업무 강요"""
 
 class EdgeRelation(str, Enum):
     DEPENDS_ON = "DEPENDS_ON"

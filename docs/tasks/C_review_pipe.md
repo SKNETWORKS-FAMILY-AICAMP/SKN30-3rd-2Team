@@ -21,9 +21,9 @@ core 의 순수 함수들을 **조립해 계약서 1건 전체를 검토**한다
 > ⚠ `review_contract` 시그니처는 MCP 계약과 직결 — 바꾸려면 리드와 합의.
 
 ## 완료 조건 (DoD)
-- [ ] `tests/pipe/test_review_pipe.py` 전부 통과
+- [x] `tests/pipe/test_review_pipe.py` 전부 통과
 - [ ] (통합) B의 인덱스 빌드 후 실제 `adapter.vector`·`adapter.koreanLaw` 주입으로 동작 확인
-- [ ] LLM·해석 문장 생성 없음 (검색·비교·분류만 — AGENTS.md 규칙 #1)
+- [x] LLM·해석 문장 생성 없음 (검색·비교·분류만 — AGENTS.md 규칙 #1)
 
 ## 참고
 - [src/core/README.md](../../src/core/README.md), [src/pipe/README.md](../../src/pipe/README.md)

@@ -19,9 +19,9 @@
 - 출력: `StandardClause` 규격 JSON ([data/README.md](../../data/README.md) 참고). enum 값은 `src/contracts/enums.py` 와 일치해야 적재됨.
 
 ## 완료 조건 (DoD)
-- [ ] `tests/pipe/test_normalize.py` 전부 통과 (skip 제거 후)
-- [ ] `data/03_normalized/standard_clauses.sw_freelance.json` 에 SW 도급계약서 전체 조항 정규화
-- [ ] `just migrate` 가 새 데이터로 에러 없이 적재됨
+- [x] `tests/pipe/test_normalize.py` 전부 통과 (skip 제거 후)
+- [x] `data/03_normalized/standard_clauses.sw_freelance.json` 에 SW 도급계약서 전체 조항 정규화
+- [x] `just migrate` 가 새 데이터로 에러 없이 적재됨
 - [ ] (가능하면) 문화예술용역 계약서도 동일 절차로 추가
 
 ## 참고

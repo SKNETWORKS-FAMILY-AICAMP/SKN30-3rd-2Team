@@ -22,9 +22,9 @@ SQLite 의 표준조항을 **bge-m3 로 임베딩해 Chroma 인덱스로 적재*
 - 검증: `vector.search("standard_clauses", "저작권의 귀속", search_type="hybrid")` 결과에 `sw_freelance-art20` 포함.
 
 ## 완료 조건 (DoD)
-- [ ] `just migrate && uv run pytest tests/pipe/test_build_index.py` 통과
-- [ ] `just build-db` 가 끝까지(migrate → build-index) 에러 없이 동작
-- [ ] 적재 건수 로그 출력
+- [x] `just migrate && uv run pytest tests/pipe/test_build_index.py` 통과
+- [x] `just build-db` 가 끝까지(migrate → build-index) 에러 없이 동작
+- [x] 적재 건수 로그 출력
 
 ## 참고
 - [src/adapter/README.md](../../src/adapter/README.md) (`vector.add_documents`, `vector.search`)

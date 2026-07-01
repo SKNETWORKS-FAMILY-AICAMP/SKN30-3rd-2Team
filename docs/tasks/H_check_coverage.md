@@ -61,11 +61,11 @@
 - **미커버 서브청크 ID 노출 여부**: `DeviationResult.uncovered_sub_chunk_ids: List[str]` 필드 추가로 확정 ✅. NONE→CHANGED 상향 시에만 채워지며(표준 측 항 id), 나머지 조항은 항상 `[]`. 2차 LLM은 `deviation==CHANGED`일 때만 이 필드를 읽어 검토 범위를 좁힘.
 
 ## 완료 조건 (DoD)
-- [ ] 사용자 조항 런타임 항 분할기 구현 (오프라인과 공용 로직)
-- [ ] 매칭 부모의 표준 서브청크 로드 경로 (SQLite `WHERE parent_clause_id`)
-- [ ] M×N 유사도 매트릭스 + `core.check_coverage` 배선
-- [ ] 미커버 항 존재 시 매칭 조항 `NONE→CHANGED` 상향 + grounding
-- [ ] `tests/core/` 에 `check_coverage` 순수 단위테스트, `tests/pipe/` 에 fake 계산기로 통합테스트
+- [x] 사용자 조항 런타임 항 분할기 구현 (오프라인과 공용 로직)
+- [x] 매칭 부모의 표준 서브청크 로드 경로 (SQLite `WHERE parent_clause_id`)
+- [x] M×N 유사도 매트릭스 + `core.check_coverage` 배선
+- [x] 미커버 항 존재 시 매칭 조항 `NONE→CHANGED` 상향 + grounding
+- [x] `tests/core/` 에 `check_coverage` 순수 단위테스트, `tests/pipe/` 에 fake 계산기로 통합테스트
 - [ ] `coverage_threshold` eval 캘리브레이션 (cosine/sigmoid 스케일)
 - [ ] Ablation: 거대 조항 "항 삭제" 골든셋에서 **Coverage Recall** 개선 증명 (G §3)
 - [ ] LLM 없이 검색·비교만 (규칙 #1) / 결정론적 지표 (규칙 #5)

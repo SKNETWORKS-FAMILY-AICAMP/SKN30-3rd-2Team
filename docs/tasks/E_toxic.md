@@ -22,7 +22,7 @@
 - 데이터: [data/03_normalized/toxic_patterns.json](../../data/03_normalized/toxic_patterns.json) (`ToxicPatternRecord` 규격)
 
 ## 완료 조건 (DoD)
-- [ ] `toxic_patterns` Chroma 컬렉션이 `just build-db` 로 함께 빌드됨
+- [x] `toxic_patterns` Chroma 컬렉션이 `just build-db` 로 함께 빌드됨
 - [ ] 독소 조항(예: 저작권 전부 무상귀속)이 매칭되어 `toxic_patterns` 에 표식됨
 - [ ] 골든셋 `gold_toxic` 라벨로 검증 (eval 연계)
 - [ ] LLM 없이 검색·매칭만 (AGENTS.md 규칙 #1)
