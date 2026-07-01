@@ -1,5 +1,22 @@
+import math
 from typing import List, Tuple, Optional
 from contracts.models import StandardClause
+
+
+def sigmoid(x: float) -> float:
+    """
+    크로스 인코더(리랭커)의 raw 점수(로짓)를 0~1 범위의 정규화 점수로 변환합니다.
+
+    리랭커 어댑터(BgeReranker)는 CrossEncoder.predict의 raw 로짓을 rerank_score로 반환하므로,
+    스케일이 불명확합니다(음수~양수). 이를 그대로 match_threshold(0.5)와 비교하면 의미가 없어,
+    로짓 0 → 0.5 로 매핑되는 sigmoid를 적용해 "threshold 0.5 = 모델이 양(+)의 판단" 을 유지합니다.
+    큰 음수 입력에서의 math.exp 오버플로를 피하기 위해 부호에 따라 분기합니다.
+    """
+    if x >= 0.0:
+        return 1.0 / (1.0 + math.exp(-x))
+    z = math.exp(x)
+    return z / (1.0 + z)
+
 
 def select_best_match(
     candidates: List[Tuple[StandardClause, float]],

@@ -159,7 +159,8 @@ def _parse_sub_chunks(rows: list[StandardClause]) -> list[StandardSubChunk]:
                         sub_chunk_id=f"{clause_id}-sub{idx:02d}",
                         parent_clause_id=clause_id,
                         sub_chunk_index=idx,
-                        text=current_chunk
+                        text=current_chunk,
+                        contract_type=r.contract_type,
                     )
                 )
                 idx += 1
@@ -174,7 +175,8 @@ def _parse_sub_chunks(rows: list[StandardClause]) -> list[StandardSubChunk]:
                             sub_chunk_id=f"{clause_id}-sub{idx:02d}",
                             parent_clause_id=clause_id,
                             sub_chunk_index=idx,
-                            text=chunk_text
+                            text=chunk_text,
+                            contract_type=r.contract_type,
                         )
                     )
                     idx += 1
@@ -185,7 +187,8 @@ def _parse_sub_chunks(rows: list[StandardClause]) -> list[StandardSubChunk]:
                     sub_chunk_id=f"{clause_id}-sub00",
                     parent_clause_id=clause_id,
                     sub_chunk_index=0,
-                    text=text
+                    text=text,
+                    contract_type=r.contract_type,
                 )
             )
     return sub_chunks

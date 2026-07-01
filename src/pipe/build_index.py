@@ -102,7 +102,7 @@ def build_sub_chunk_index(collection_name: str = "standard_sub_chunks") -> int:
         table_name="standard_sub_chunks",
         collection_name=collection_name,
         id_column="sub_chunk_id",
-        metadata_columns=["parent_clause_id", "sub_chunk_index"],
+        metadata_columns=["parent_clause_id", "sub_chunk_index", "contract_type"],
     )
 
 

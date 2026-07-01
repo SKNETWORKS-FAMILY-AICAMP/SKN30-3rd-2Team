@@ -231,13 +231,13 @@ class VectorManager:
         # 데이터 제거에 따른 캐시 무효화
         self._invalidate_cache(collection_name)
 
-    def dense_search(
-        self, collection_name: str, query: str, metadata_filter: Optional[Dict[str, Any]] = None, top_k: int = 5
+    def _dense_query(
+        self, collection: Collection, query_vector: List[float], metadata_filter: Optional[Dict[str, Any]], top_k: int
     ) -> List[Dict[str, Any]]:
-        """Dense 임베딩 코사인 벡터 비교 기반의 밀도(dense) 조회를 수행합니다."""
-        query_vector = self._embedder.embed_query(query)
-        collection = self.get_collection(collection_name)
+        """이미 계산된 임베딩 벡터로 Chroma 컬렉션을 조회해 결과 dict 목록을 만듭니다.
 
+        embed_query 호출을 분리해, 배치 검색(search_many)이 임베딩을 한 번만 계산하고 재사용하도록 합니다.
+        """
         results = collection.query(
             query_embeddings=[query_vector],
             n_results=top_k,
@@ -260,6 +260,14 @@ class VectorManager:
                 }
                 scored_docs.append(doc)
         return scored_docs
+
+    def dense_search(
+        self, collection_name: str, query: str, metadata_filter: Optional[Dict[str, Any]] = None, top_k: int = 5
+    ) -> List[Dict[str, Any]]:
+        """Dense 임베딩 코사인 벡터 비교 기반의 밀도(dense) 조회를 수행합니다."""
+        query_vector = self._embedder.embed_query(query)
+        collection = self.get_collection(collection_name)
+        return self._dense_query(collection, query_vector, metadata_filter, top_k)
 
     def bm25_search(
         self, collection_name: str, query: str, metadata_filter: Optional[Dict[str, Any]] = None, top_k: int = 5
@@ -337,6 +345,41 @@ class VectorManager:
             return self.hybrid_search(collection_name, query, metadata_filter, top_k)
         else:
             raise ValueError(f"지원하지 않는 검색 유형입니다: {search_type}")
+
+    def search_many(
+        self, collection_name: str, queries: List[str], search_type: str = "hybrid",
+        metadata_filter: Optional[Dict[str, Any]] = None, top_k: int = 5
+    ) -> List[List[Dict[str, Any]]]:
+        """여러 질의를 배치로 검색합니다. dense 임베딩을 embed_documents로 한 번에 계산해 재사용합니다.
+
+        조항별로 search 를 개별 호출할 때 발생하는 N회 임베딩 왕복을, 컬렉션당 1회 배치로 줄입니다.
+        BM25 인덱스는 (collection, filter)별로 캐시되므로 질의마다 재구축하지 않습니다.
+        반환은 queries 와 1:1 정렬된 결과 목록의 목록입니다.
+        """
+        if not queries:
+            return []
+
+        if search_type == "dense":
+            vectors = self._embedder.embed_documents(queries)
+            collection = self.get_collection(collection_name)
+            return [self._dense_query(collection, v, metadata_filter, top_k) for v in vectors]
+
+        if search_type in ("bm25", "sparse"):
+            return [self.bm25_search(collection_name, q, metadata_filter, top_k) for q in queries]
+
+        if search_type == "hybrid":
+            fetch_k = top_k * 2
+            vectors = self._embedder.embed_documents(queries)  # 배치 임베딩 1회
+            collection = self.get_collection(collection_name)
+            fused_per_query = []
+            for query, vector in zip(queries, vectors):
+                dense_res = self._dense_query(collection, vector, metadata_filter, fetch_k)
+                bm25_res = self.bm25_search(collection_name, query, metadata_filter, fetch_k)
+                fused = self._reciprocal_rank_fusion(dense_res, bm25_res)
+                fused_per_query.append(fused[:top_k])
+            return fused_per_query
+
+        raise ValueError(f"지원하지 않는 검색 유형입니다: {search_type}")
 
     def keyword_search(self, collection_name: str, keyword: str, metadata_filter: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """Chroma의 where_document 필터를 사용해 키워드 텍스트가 포함된 문서를 엄격 발췌합니다."""

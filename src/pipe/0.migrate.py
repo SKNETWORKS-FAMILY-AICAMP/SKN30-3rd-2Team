@@ -107,13 +107,13 @@ def migrate() -> None:
         for normalized_file in sorted(NORMALIZED_DIR.glob("standard_sub_chunks.*.json")):
             for raw in json.loads(normalized_file.read_text(encoding="utf-8")):
                 sub_chunk_rows.append(
-                    (raw["sub_chunk_id"], raw["parent_clause_id"], raw["sub_chunk_index"], raw["text"])
+                    (raw["sub_chunk_id"], raw["parent_clause_id"], raw["sub_chunk_index"], raw["text"], raw["contract_type"])
                 )
         if sub_chunk_rows:
             conn.executemany(
                 "INSERT INTO standard_sub_chunks "
-                "(sub_chunk_id, parent_clause_id, sub_chunk_index, text) "
-                "VALUES (?, ?, ?, ?)",
+                "(sub_chunk_id, parent_clause_id, sub_chunk_index, text, contract_type) "
+                "VALUES (?, ?, ?, ?, ?)",
                 sub_chunk_rows,
             )
             logging.info(f"🧩 서브청크 {len(sub_chunk_rows)}건 적재")

@@ -40,6 +40,8 @@ class StandardSubChunk(BaseModel):
     """부모 조항 내에서의 항 순서 (0-based)"""
     text: str
     """서브청크의 본문 텍스트"""
+    contract_type: ContractType
+    """계약서의 대분류 종류 (혼합 컬렉션에서의 recall + 정합성 디커플링을 위해 추가)"""
 
 class ClauseRelation(BaseModel):
     """[고도화 A] 조항 의존성 그래프의 category 레벨 엣지 (data/03_normalized/clause_relations.json)"""

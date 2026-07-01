@@ -64,6 +64,31 @@ class Retriever(Protocol):
         """
         ...
 
+    def search_many(
+        self,
+        collection_name: str,
+        queries: List[str],
+        search_type: str = "hybrid",
+        metadata_filter: Optional[Dict[str, Any]] = None,
+        top_k: int = 5,
+    ) -> List[List[Dict[str, Any]]]:
+        """여러 질의를 한 번에 검색합니다. dense 임베딩을 배치로 계산해 모델 왕복(N회→1회)을 줄입니다.
+
+        조항 단위 검토 루프에서 조항마다 search 를 개별 호출하면 임베딩 왕복이 N번 직렬화됩니다.
+        이 메서드는 임베딩을 배치화하여 지연시간을 낮춥니다. 반환 리스트는 queries 와 1:1 정렬됩니다.
+
+        Args:
+            collection_name: 검색 대상 컬렉션 이름
+            queries: 검색할 질의 텍스트 목록
+            search_type: 검색 방식 ("hybrid", "dense", "bm25")
+            metadata_filter: 메타데이터 필터 조건 (옵션)
+            top_k: 각 질의당 반환할 최상위 후보 갯수
+
+        Returns:
+            queries 와 같은 순서로 정렬된, 질의별 검색 결과 목록의 목록
+        """
+        ...
+
 
 class Reranker(Protocol):
     """크로스 인코더 기반 재정렬(rerank)을 수행하는 포트 인터페이스"""
@@ -97,6 +122,30 @@ class Reranker(Protocol):
 
         Returns:
             rerank_score 필드가 추가된 재정렬 문서 목록 (내림차순)
+        """
+        ...
+
+    def rerank_many(
+        self,
+        queries: List[str],
+        items_per_query: List[List[Dict[str, Any]]],
+        text_key: str = "text",
+        top_k: int | None = None,
+    ) -> List[List[Dict[str, Any]]]:
+        """여러 질의의 재정렬을 한 번에 처리합니다(질의별 rerank 를 배치화).
+
+        cross-encoder 는 (질의, 문서) 쌍 단위로 점수를 내므로 질의별 호출이 자연스럽지만,
+        모든 질의의 쌍을 펼쳐(flatten) 단일 forward pass 로 채점하면 모델 배치를 가득 채워
+        호출 오버헤드를 줄일 수 있습니다. 각 쌍은 독립 채점되므로 점수는 질의별 rerank 와 동일합니다.
+
+        Args:
+            queries: 질의 텍스트 목록
+            items_per_query: 질의와 1:1 정렬된, 질의별 재정렬 대상 문서 목록의 목록
+            text_key: 각 문서 dict 에서 본문이 저장된 키 이름
+            top_k: 질의별 반환 상위 항목 수 (None이면 전체)
+
+        Returns:
+            queries 와 1:1 정렬된, 질의별 재정렬 결과(rerank_score 부여·내림차순) 목록의 목록
         """
         ...
 
