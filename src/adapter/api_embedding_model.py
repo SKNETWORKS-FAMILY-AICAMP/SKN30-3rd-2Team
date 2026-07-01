@@ -139,6 +139,23 @@ class ApiReranker:
         reranked.sort(key=lambda x: x["rerank_score"], reverse=True)
         return reranked[:top_k] if top_k is not None else reranked
 
+    def rerank_many(
+        self,
+        queries: List[str],
+        items_per_query: List[List[Dict[str, Any]]],
+        text_key: str = "text",
+        top_k: int | None = None,
+    ) -> List[List[Dict[str, Any]]]:
+        """여러 질의를 재정렬한다. RunPod rerank 엔드포인트는 (query, docs) 단일 질의 규격이라
+        질의별 pair 를 한 번에 합칠 수 없어 rerank 를 질의별로 호출한다(동작은 동일, 네트워크 배치는 불가).
+        """
+        if len(queries) != len(items_per_query):
+            raise ValueError("queries 와 items_per_query 의 길이가 일치해야 합니다.")
+        return [
+            self.rerank(query, items, text_key, top_k)
+            for query, items in zip(queries, items_per_query)
+        ]
+
 
 # =================================================================
 # 운영용 공용 인스턴스

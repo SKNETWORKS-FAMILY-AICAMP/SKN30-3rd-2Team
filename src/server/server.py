@@ -6,7 +6,7 @@ from mcp.server.fastmcp import FastMCP
 from contracts.enums import ContractType, Category
 from contracts.models import StandardClause
 from contracts.implement import KordocParser, KoreanLawGrounder
-from adapter import vector, db
+from adapter import vector, db, reranker
 from pipe.review_pipe import review_contract as review_contract_pipe
 from pipe.exceptions import EmptyDocumentError, CorpusUnavailableError, InvalidConfigError, PipelineIntegrityError
 from server.dto import (
@@ -218,6 +218,7 @@ def review_contract(file_path: str, contract_type: str) -> ReviewContractRespons
             clauses=clauses,
             contract_type=ct,
             retriever=vector,
+            reranker=reranker,
             grounder=_grounder,
             all_standard_clauses=standards,
         )

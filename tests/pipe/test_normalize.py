@@ -17,7 +17,6 @@ from contracts.models import Clause
 # pytestmark = pytest.mark.skip(reason="리뷰 반영 후 skip 삭제")
 
 # 파일 내 모든 테스트를 통합 테스트(integration)로 지정
-pytestmark = pytest.mark.integration
 # setup_module 또는 개별 테스트에서 빌드 호출
 @pytest.fixture(autouse=True)
 def init_vectors():
@@ -61,7 +60,7 @@ def test_조번호와_제목_추출():
 def test_저작권_조항은_IP_OWNERSHIP():
     from pipe.normalize import label_category
     assert label_category(
-        "제20조", "지식재산권의 귀속",
+        "지식재산권의 귀속",
         "지식재산권 귀속은 공동소유로 하며 저작권도 동일하게 적용한다.",
     ) == Category.IP_OWNERSHIP
 
@@ -69,7 +68,7 @@ def test_저작권_조항은_IP_OWNERSHIP():
 def test_보수_조항은_PAYMENT():
     from pipe.normalize import label_category
     assert label_category(
-        "제6조", "보수",
+         "보수",
         "도급인은 수급인에게 보수 금액을 지급 시기에 따라 지급한다.",
     ) == Category.PAYMENT
 
@@ -77,7 +76,7 @@ def test_보수_조항은_PAYMENT():
 def test_비밀준수_조항은_CONFIDENTIALITY():
     from pipe.normalize import label_category
     assert label_category(
-        "제17조", "비밀준수",
+         "비밀준수",
         "당사자는 영업비밀을 제3자에게 유출하지 않는다.",
     ) == Category.CONFIDENTIALITY
 
@@ -89,7 +88,7 @@ def test_하자담보_조항은_WARRANTY_PAYMENT_아님():
     """
     from pipe.normalize import label_category
     result = label_category(
-        "제19조", "하자의 담보",
+         "하자의 담보",
         "하자담보 기간은 12개월로 하며, 수급인은 하자보수 의무를 진다.",
     )
     assert result == Category.WARRANTY
@@ -99,7 +98,7 @@ def test_하자담보_조항은_WARRANTY_PAYMENT_아님():
 def test_계약기간_조항은_CONTRACT_PERIOD():
     from pipe.normalize import label_category
     assert label_category(
-        "제5조", "계약기간",
+        "계약기간",
         "본 계약의 계약 기간은 업무 착수일부터 근로 개시일까지로 한다.",
     ) == Category.CONTRACT_PERIOD
 
@@ -107,7 +106,7 @@ def test_계약기간_조항은_CONTRACT_PERIOD():
 def test_납품검수_조항은_DELIVERY_INSPECTION():
     from pipe.normalize import label_category
     assert label_category(
-        "제11조", "납품",
+        "납품",
         "수급인은 납기일까지 계약목적물을 납품하고 도급인은 검수 기준에 따라 검사한다.",
     ) == Category.DELIVERY_INSPECTION
 
@@ -115,7 +114,7 @@ def test_납품검수_조항은_DELIVERY_INSPECTION():
 def test_재하도급_조항은_SUBCONTRACTING():
     from pipe.normalize import label_category
     assert label_category(
-        "제15조", "재하도급 금지",
+        "재하도급 금지",
         "수급인은 도급인의 서면 승인 없이 재하도급 및 재위탁을 할 수 없다.",
     ) == Category.SUBCONTRACTING
 
@@ -123,22 +122,23 @@ def test_재하도급_조항은_SUBCONTRACTING():
 def test_손해배상_조항은_LIABILITY():
     from pipe.normalize import label_category
     assert label_category(
-        "제18조", "손해배상",
+        "손해배상",
         "계약 위반으로 손해배상 청구가 발생한 경우 귀책사유 있는 자가 배상 책임을 진다.",
     ) == Category.LIABILITY
 
 
-def test_미분류_조항은_ValueError():
+def test_일반조항은_GENERAL():
     """
-    어떤 카테고리와도 유사도가 낮은 조항은 ValueError 를 발생시켜야 합니다.
-    SCOPE_SOW 묵시적 fallback 금지 (AGENTS.md "조용한 실패 금지").
+    어떤 카테고리와도 유사도가 낮은 일반 조항(정의·기본원칙 등)은 GENERAL 로 분류됩니다.
+    표준 조항은 드롭하지 않으며(AGENTS.md "조용한 실패 금지"), SCOPE_SOW 등 특정
+    카테고리로의 묵시적 fallback 도 금지 — 명시적 캐치올 GENERAL 로 귀결되어야 합니다.
     """
     from pipe.normalize import label_category
-    with pytest.raises(ValueError):
-        label_category(
-            "제1조", "기본원칙",
-            "당사자는 신의성실의 원칙에 따라 본 계약을 이행한다.",
-        )
+    result = label_category(
+        "기본원칙",
+        "당사자는 신의성실의 원칙에 따라 본 계약을 이행한다.",
+    )
+    assert result == Category.GENERAL
 
 
 # ── normalize_file ────────────────────────────────────────────────────────────
@@ -152,25 +152,72 @@ SMOKE_MD = """\
 """
 
 
-def test_normalize_file_표준조항_리스트_반환(tmp_path, patch_globals):
+def test_normalize_file_표준조항_리스트_반환(tmp_path):
     from pipe.normalize import normalize_file
     md_file = tmp_path / "test.md"
     md_file.write_text(SMOKE_MD, encoding="utf-8")
 
-    clauses = normalize_file(str(md_file), ContractType.SW_FREELANCE, "2024")
+    clauses, _ = normalize_file(str(md_file), ContractType.SW_FREELANCE, "2024")
 
     assert len(clauses) == 2
     assert clauses[0].category == Category.PAYMENT
     assert clauses[1].category == Category.CONFIDENTIALITY
 
 
-def test_normalize_file_clause_id_형식(tmp_path, patch_globals):
+def test_normalize_file_clause_id_형식(tmp_path):
     """clause_id 는 '{contract_type}-art{N}' 형식이어야 합니다."""
     from pipe.normalize import normalize_file
     md_file = tmp_path / "test.md"
     md_file.write_text(SMOKE_MD, encoding="utf-8")
 
-    clauses = normalize_file(str(md_file), ContractType.SW_FREELANCE, "2024")
+    clauses, _ = normalize_file(str(md_file), ContractType.SW_FREELANCE, "2024")
 
-    assert clauses[0].clause_id == "sw_freelance-art6"
-    assert clauses[1].clause_id == "sw_freelance-art17"
+    assert clauses[0].clause_id == "sw_freelance-2024-art6"
+    assert clauses[1].clause_id == "sw_freelance-2024-art17"
+
+# ── normalize_file — 서브청크 생성 통합 테스트 ──────────────────────────────
+
+LARGE_CLAUSE_MD = """\
+### 제58조(하도급대금의 지급)
+① 원사업자는 수급사업자에게 대금을 지급하여야 한다.
+② 원사업자는 선급금을 지급하는 경우에는 지급일부터 15일 이내에 지급하여야 한다.
+③ 원사업자는 목적물 등의 수령일부터 60일 이내에 하도급대금을 지급하여야 한다.
+"""
+
+
+def test_normalize_file_거대조항_서브청크_2개이상(tmp_path):
+    """항·호가 3개인 거대 조항은 서브청크가 2개 이상 생성됩니다."""
+    from pipe.normalize import normalize_file
+    md_file = tmp_path / "test.md"
+    md_file.write_text(LARGE_CLAUSE_MD, encoding="utf-8")
+
+    _, sub_chunks = normalize_file(str(md_file), ContractType.SW_FREELANCE, "2024")
+
+    assert len(sub_chunks) >= 2
+    parent_ids = {s.parent_clause_id for s in sub_chunks}
+    assert len(parent_ids) == 1
+
+
+def test_normalize_file_서브청크_인덱스_연속(tmp_path):
+    """서브청크 인덱스는 0부터 순서대로 부여됩니다."""
+    from pipe.normalize import normalize_file
+    md_file = tmp_path / "test.md"
+    md_file.write_text(LARGE_CLAUSE_MD, encoding="utf-8")
+
+    _, sub_chunks = normalize_file(str(md_file), ContractType.SW_FREELANCE, "2024")
+
+    indices = sorted(s.sub_chunk_index for s in sub_chunks)
+    assert indices == list(range(len(sub_chunks)))
+
+
+def test_normalize_file_단순조항_서브청크_정확히_1개(tmp_path):
+    """조건 미달 단순 조항은 서브청크가 정확히 1개(전체 텍스트 래핑)입니다."""
+    from pipe.normalize import normalize_file
+    md_file = tmp_path / "test.md"
+    md_file.write_text(SMOKE_MD, encoding="utf-8")
+
+    _, sub_chunks = normalize_file(str(md_file), ContractType.SW_FREELANCE, "2024")
+
+    # SMOKE_MD 조항 2개 각각 서브청크 1개 = 합계 2개
+    assert len(sub_chunks) == 2
+    assert all(s.sub_chunk_index == 0 for s in sub_chunks)

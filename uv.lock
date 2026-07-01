@@ -3020,14 +3020,18 @@ source = { editable = "." }
 dependencies = [
     { name = "chromadb" },
     { name = "httpx" },
-    { name = "ipykernel" },
     { name = "kiwipiepy" },
     { name = "llama-index-core" },
     { name = "mcp", extra = ["cli"] },
     { name = "pydantic" },
-    { name = "pytest" },
     { name = "python-dotenv" },
     { name = "rank-bm25" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "ipykernel" },
+    { name = "pytest" },
     { name = "sentence-transformers" },
 ]
 
@@ -3035,14 +3039,18 @@ dependencies = [
 requires-dist = [
     { name = "chromadb", specifier = ">=1.5.9" },
     { name = "httpx", specifier = ">=0.28.1" },
-    { name = "ipykernel", specifier = ">=7.3.0" },
     { name = "kiwipiepy", specifier = ">=0.23.2" },
     { name = "llama-index-core", specifier = ">=0.14.23" },
     { name = "mcp", extras = ["cli"], specifier = ">=1.28.1" },
     { name = "pydantic", specifier = ">=2.13.4" },
-    { name = "pytest", specifier = ">=9.1.1" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
     { name = "rank-bm25", specifier = ">=0.2.2" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "ipykernel", specifier = ">=7.3.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
     { name = "sentence-transformers", specifier = ">=5.6.0" },
 ]
 

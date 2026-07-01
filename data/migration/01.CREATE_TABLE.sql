@@ -56,7 +56,8 @@ CREATE TABLE IF NOT EXISTS standard_sub_chunks (
     parent_clause_id TEXT NOT NULL,     -- FK → standard_clauses.clause_id
     sub_chunk_index  INTEGER NOT NULL,  -- 항 순서 (0-based)
     text             TEXT NOT NULL,
+    contract_type TEXT NOT NULL,      -- ContractType enum (예: SW_FREELANCE)
     FOREIGN KEY (parent_clause_id) REFERENCES standard_clauses(clause_id)
 );
 CREATE INDEX IF NOT EXISTS idx_sub_parent ON standard_sub_chunks(parent_clause_id);
-
+CREATE INDEX IF NOT EXISTS idx_sub_contract_type ON standard_sub_chunks(contract_type);

@@ -1,8 +1,35 @@
 import threading
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from config import EMBEDDING_MODEL_NAME, RERANKER_MODEL_NAME
 
 from sentence_transformers import SentenceTransformer, CrossEncoder
+
+
+def _scatter_reranked(
+    num_queries: int,
+    flat_items: List[Dict[str, Any]],
+    flat_owner: List[int],
+    scores: List[float],
+    top_k: Optional[int],
+) -> List[List[Dict[str, Any]]]:
+    """펼쳐진(flatten) 재정렬 점수를 질의별로 되담아 정렬·절단합니다. (순수 함수)
+
+    flat_items[k] 는 flat_owner[k] 번째 질의에 속하며 scores[k] 점수를 받습니다.
+    질의별로 rerank_score 를 부여하고 내림차순 정렬 후 top_k 로 절단합니다.
+    후보가 없던 질의는 빈 리스트로 보존됩니다.
+    """
+    results: List[List[Dict[str, Any]]] = [[] for _ in range(num_queries)]
+    for item, owner_idx, score in zip(flat_items, flat_owner, scores):
+        new_item = item.copy()
+        new_item["rerank_score"] = float(score)
+        results[owner_idx].append(new_item)
+
+    for group in results:
+        group.sort(key=lambda x: x["rerank_score"], reverse=True)
+
+    if top_k is not None:
+        results = [group[:top_k] for group in results]
+    return results
 
 
 class Bgem3Embedder:
@@ -25,7 +52,7 @@ class Bgem3Embedder:
     def __init__(self):
         if self._initialized:
             return
-        self.model = None
+        self.model : Optional[SentenceTransformer] = None
         self._initialized = True
 
     def _load_model(self):
@@ -153,10 +180,47 @@ class BgeReranker:
             
         # 점수 기준 내림차순 정렬
         reranked_items.sort(key=lambda x: x["rerank_score"], reverse=True)
-        
+
         if top_k is not None:
             return reranked_items[:top_k]
         return reranked_items
+
+    def rerank_many(
+        self,
+        queries: List[str],
+        items_per_query: List[List[Dict[str, Any]]],
+        text_key: str = "text",
+        top_k: int | None = None,
+    ) -> List[List[Dict[str, Any]]]:
+        """여러 질의의 (질의, 문서) 쌍을 모두 펼쳐 단일 forward pass 로 재정렬합니다.
+
+        질의별 rerank 를 N번 부르는 대신 pair 를 flatten 해 model.predict 를 1회만 호출합니다.
+        각 쌍은 독립 채점되므로 결과 점수는 질의별 rerank 와 동일하며, 성능만 개선됩니다.
+        """
+        if len(queries) != len(items_per_query):
+            raise ValueError("queries 와 items_per_query 의 길이가 일치해야 합니다.")
+
+        # 1. 모든 질의의 쌍을 펼치고 소유 질의 인덱스를 기록
+        pairs: List[List[str]] = []
+        flat_items: List[Dict[str, Any]] = []
+        flat_owner: List[int] = []
+        for query_idx, (query, items) in enumerate(zip(queries, items_per_query)):
+            for item in items:
+                pairs.append([query, item.get(text_key, "")])
+                flat_items.append(item)
+                flat_owner.append(query_idx)
+
+        if not pairs:
+            return [[] for _ in queries]
+
+        # 2. 단일 배치 채점
+        self._load_model()
+        scores = self.model.predict(pairs)
+        if isinstance(scores, float):
+            scores = [scores]
+
+        # 3. 질의별로 되담아 정렬·절단
+        return _scatter_reranked(len(queries), flat_items, flat_owner, list(scores), top_k)
 
 
 # =================================================================
