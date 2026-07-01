@@ -40,9 +40,9 @@
 | `contract_type` | 계약 종류 (`SW_FREELANCE` 등) |
 | `user_clause` | 평가용 사용자 조항 본문 (= 검색 질의) |
 | `gold_clause_id` | 정답 표준조항 id. **비표준(EXTRA)이면 `null`** |
-| `gold_deviation` | `NONE` / `CHANGED` / `EXTRA` / `MISSING` |
-| `gold_toxic` | (선택) 독소 패턴 라벨 (`IP_TOTAL_FREE` 등) — 독소 검색 평가용 |
-| `trap` | 함정 유형: `none` / `paraphrase`(말바꿈) / `reorder`(순서) / `partial`(부분변경) |
+| `gold_deviation` | `NONE` / `CHANGED` / `EXTRA` (조항 단위). `MISSING` 은 계약 단위 → 아래 참조 |
+| `gold_toxic` | (선택) 독소 패턴 라벨 — **반드시 `ToxicPattern` enum 값** (`IP_TOTAL_FREE` 등) |
+| `trap` | `none` / `paraphrase`(말바꿈) / `reorder`(순서) / `partial`(부분변경) / `contradiction`(조항번호 언급+내용 반대) |
 | `note` | 사람용 설명 |
 
 ### 지표별 사용법
@@ -65,8 +65,10 @@
 - **실제:** 실제 샘플 계약서에 사람이 정답을 라벨링한다.
 - **함정 비중을 높인다:** 검색이 틀리기 쉬운 `paraphrase`·`reorder`·`partial`을 의도적으로 많이 넣어야 ablation에서 RAG의 가치가 드러난다.
 
-> ⚠ 예시 파일은 현재 시드 3조항(art17·18·20)만 참조해 **지금 바로 돌려볼 수 있게** 만든 것입니다.
-> 팀원 A의 정규화가 끝나 전체 조항이 적재되면 골든셋을 전 조항으로 확장하세요.
+> 현재 합성 골든셋 3종 92건(sw_freelance 17 · si_subcontract 25 · sm_subcontract 50).
+> **평가는 두 트랙으로 나뉜다** — 트랙 A(합성 조항 단위: 검색·분류·독소·ablation)와
+> 트랙 B(실제 계약서 = 계약 단위: E2E·MISSING, 현재 보류). 상세·Driver 규격은
+> [docs/tasks/D_eval.md](../docs/tasks/D_eval.md) 를 단일 진실원으로 삼는다.
 
 ---
 

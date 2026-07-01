@@ -28,11 +28,11 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["src" ,"tests", "eval"]
+packages = ["src", "tests"]
 
 [tool.pytest.ini_options]
-# src/ → `from contracts...`, `from core import ...` / "." → 루트의 `eval` 패키지 import
-pythonpath = ["src", "."]
+# src/ → `from contracts...`, `from core import ...` 및 `from eval import ...`
+pythonpath = ["src"]
 testpaths = ["tests"]
 addopts = "-v -m 'not integration'"
 markers = [

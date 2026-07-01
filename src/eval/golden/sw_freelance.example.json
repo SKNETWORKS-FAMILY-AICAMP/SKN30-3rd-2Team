@@ -80,9 +80,9 @@
     "user_clause": "을의 업무수행 결과가 도급인의 기대에 미치지 못할 경우, 도급인은 즉시 계약을 해지하고 기지급한 보수의 전액 환수를 청구할 수 있다.",
     "gold_clause_id": "sw_freelance-art15",
     "gold_deviation": "CHANGED",
-    "gold_toxic": "UNFAIR_TERMINATION",
+    "gold_toxic": "UNILATERAL_CANCELLATION",
     "trap": "paraphrase",
-    "note": "말바꿈 함정 — '기대치'라는 주관적 기준을 근거로 한 부당 해지 및 전액 환수 조항(독소)"
+    "note": "말바꿈 함정 — '기대치'라는 주관적 기준을 근거로 한 부당 해지 및 전액 환수 조항(독소, 일방적 계약 취소)"
   },
   {
     "case_id": "g10",
@@ -136,9 +136,9 @@
     "user_clause": "계약 해지 시, 수급인은 이미 수행한 업무에 대해서도 일체의 보수를 청구하지 않는다.",
     "gold_clause_id": "sw_freelance-art15",
     "gold_deviation": "CHANGED",
-    "gold_toxic": "UNPAID_COMPENSATION",
+    "gold_toxic": "UNILATERAL_CANCELLATION",
     "trap": "paraphrase",
-    "note": "기수행 업무 보수 포기 조항(Changed & Toxic)"
+    "note": "해지 시 기수행 업무 보수 포기 조항(Changed & Toxic, 무보상 계약 해지)"
   },
   {
     "case_id": "g16",
