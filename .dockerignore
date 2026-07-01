@@ -1,0 +1,26 @@
+# 빌드 컨텍스트에서 제외 (Dockerfile은 필요한 경로만 명시적으로 COPY 함)
+.venv
+.git
+.github
+__pycache__
+*.py[oc]
+*.egg-info
+
+# 오프라인 전처리 전용 원본 (런타임 미사용: src/pipe/convert.py, normalize.py 참고)
+data/01_raw
+data/02_converted
+data/toxic
+data/99_uploads
+
+# 문서/테스트/스크래치 (런타임 불필요)
+docs
+tests
+eval
+scratch
+README.md
+
+# 비밀값 · 로컬 설정
+.env
+.env.*
+.claude
+.agents

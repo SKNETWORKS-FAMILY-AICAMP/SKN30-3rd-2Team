@@ -62,15 +62,15 @@ golden ─ driver ─┤
 | --- | --- | --- | --- |
 | 1 | 실계약 문서 확보 + 배치 | `src/eval/golden_b/raw/*.hwp\|pdf` (contract_type별 최소 2~3건 권장) | 팀(수동) |
 | 2 | 디렉토리·라벨 스키마 확정 | `src/eval/golden_b/{raw/, labels/}` + `labels/<contract_id>.json` (아래 §스키마) | 완료(본 문서) |
-| 3 | MISSING 후보 덤프 스크립트 | `src/eval/dump_review_b.py` — `parse_contract`+`review_contract` 를 실문서에 돌려 파싱 결과 미리보기·MISSING 후보·전체 `DeviationResult` 를 사람이 보기 좋게 출력 | 구현 대상 |
-| 4 | 사람 컨펌 | 3의 출력에서 MISSING 후보를 확인/수정해 `labels/<contract_id>.json` 의 `expected_missing` 에 반영 (문서당 ~5분, **처음부터 라벨을 쓰는 게 아니라 시스템 제안을 컨펌**) | 팀(수동) |
-| 5 | MISSING Recall 평가 함수 | `src/eval/run_eval.py` 에 `evaluate_missing_recall()` 추가 — `labels/*.json` 로드 → 문서별 `review_contract` 실행 → MISSING id 집합 vs `expected_missing` → `metrics.precision_recall` | 구현 대상 |
-| 6 | 강건성 스팟체크 | 3번 스크립트의 전체 결과 덤프를 사람이 훑어 이상 징후 확인 (문서당 ~5분) | 팀(수동) |
+| 3 | MISSING 후보 덤프 | `python -m eval.run_eval b` (별도 파일 아님 — run_eval `track='b'` 분기). 실문서를 `KordocParser.parse`+`review_contract` 로 돌려 파싱 결과·MISSING 후보·조항별 `DeviationResult` 를 사람이 보기 좋게 출력 | 완료 |
+| 4 | 사람 컨펌 | 3의 출력에서 MISSING 후보를 확인/수정해 `labels/vN_<contract_id>.json` 의 `expected_missing` 에 반영 (문서당 ~5분, **처음부터 라벨을 쓰는 게 아니라 시스템 제안을 컨펌** → 순환 편향 주의: 시스템이 놓친 누락도 독립 확인) | 팀(수동) |
+| 5 | MISSING Recall 평가 함수 | `src/eval/run_eval.py` 의 `evaluate_missing_recall()` — `labels/vN_*.json` 로드 → 문서별 `review_contract` → MISSING id 집합 vs `expected_missing` → `metrics.precision_recall` → `vN_b_result.md` 생성 | 완료 |
+| 6 | 강건성 스팟체크 | `run_eval b` 덤프를 사람이 훑어 이상 징후 확인 후 `vN_b_result.md` 강건성 섹션 작성 (문서당 ~5분) | 팀(수동) |
 | 7 | 문서화 | 본 절 갱신(완료) + 결정 로그 세션 3 추가 | 완료 |
 
 ### 라벨 스키마 (계약 단위 — 트랙 B)
 ```jsonc
-// src/eval/golden_b/labels/c01.json
+// src/eval/golden_b/labels/v1_c01.json   (버전 접두사 vN_ — 트랙 A 골든과 동일 규약)
 {
   "contract_id": "c01",
   "contract_type": "SW_FREELANCE",

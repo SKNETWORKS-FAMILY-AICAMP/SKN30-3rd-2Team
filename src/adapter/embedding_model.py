@@ -2,7 +2,15 @@ import threading
 from typing import List, Dict, Any, Optional
 from config import EMBEDDING_MODEL_NAME, RERANKER_MODEL_NAME
 
+import torch
 from sentence_transformers import SentenceTransformer, CrossEncoder
+
+
+def _device_and_dtype() -> tuple[str, Any]:
+    """GPU 가용 여부에 따라 device·torch_dtype을 정한다(GPU: fp16, CPU: auto)."""
+    if torch.cuda.is_available():
+        return "cuda", torch.float16
+    return "cpu", "auto"
 
 
 def _scatter_reranked(
@@ -61,8 +69,12 @@ class Bgem3Embedder:
             with self._lock:
                 if self.model is None:
                     # Hugging Face 캐시 경로에 저장된 모델 또는 원격 모델을 로드합니다.
-                    # device 설정은 PyTorch가 사용 가능한 GPU가 있으면 자동으로 cuda를 잡고 없으면 cpu를 사용합니다.
-                    self.model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+                    device, torch_dtype = _device_and_dtype()
+                    self.model = SentenceTransformer(
+                        EMBEDDING_MODEL_NAME,
+                        device=device,
+                        model_kwargs={"torch_dtype": torch_dtype},
+                    )
 
     def embed_query(self, text: str) -> List[float]:
         """
@@ -127,7 +139,12 @@ class BgeReranker:
         if self.model is None:
             with self._lock:
                 if self.model is None:
-                    self.model = CrossEncoder(RERANKER_MODEL_NAME)
+                    device, torch_dtype = _device_and_dtype()
+                    self.model = CrossEncoder(
+                        RERANKER_MODEL_NAME,
+                        device=device,
+                        model_kwargs={"torch_dtype": torch_dtype},
+                    )
 
     def compute_scores(self, query: str, documents: List[str]) -> List[float]:
         """
@@ -144,6 +161,34 @@ class BgeReranker:
         if isinstance(scores, float):
             return [scores]
         return [float(score) for score in scores]
+
+    def compute_scores_many(
+        self, queries: List[str], docs_per_query: List[List[str]]
+    ) -> List[List[float]]:
+        """여러 질의의 (질의, 문서) 쌍을 모두 펼쳐 단일 forward pass 로 점수만 계산합니다(정렬 없음).
+
+        rerank_many 와 달리 원본 입력 순서를 그대로 보존해 반환한다 — RunPod 워커가 네트워크
+        너머로 원시 점수만 전달하고, 정렬·top_k 절단은 호출측(ApiReranker)이 하도록 하기 위함.
+        """
+        pairs: List[List[str]] = []
+        owners: List[int] = []
+        for query_idx, docs in enumerate(docs_per_query):
+            for doc in docs:
+                pairs.append([queries[query_idx], doc])
+                owners.append(query_idx)
+
+        if not pairs:
+            return [[] for _ in queries]
+
+        self._load_model()
+        scores = self.model.predict(pairs)
+        if isinstance(scores, float):
+            scores = [scores]
+
+        result: List[List[float]] = [[] for _ in queries]
+        for owner, score in zip(owners, scores):
+            result[owner].append(float(score))
+        return result
 
     def rerank(
         self, query: str, items: List[Dict[str, Any]], text_key: str = "text", top_k: int | None = None

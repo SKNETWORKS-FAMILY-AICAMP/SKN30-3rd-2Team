@@ -29,20 +29,25 @@
 uv tool install rust-just     # just 명령 러너 설치 (최초 1회)
 just setup                    # node·MCP패키지·uv동기화·모델다운로드·DB마이그레이션 일괄
 just build-db                 # 03_normalized(정답) → SQLite → Chroma 인덱스 재생성
-uv run pytest                 # 테스트 (현재 통과/스킵 규격 확인)
 ```
 
 ### 주요 명령
 | 명령 | 설명 |
 | --- | --- |
-| `just setup` | 최초 1회 개발 환경 전체 구축 |
-| `just build-db` | DB + 벡터 인덱스 **원클릭 재생성** (migrate → build-index) |
-| `just migrate` | 03_normalized JSON → SQLite 적재까지 |
-| `just normalize` | 02_converted 마크다운 → 03_normalized JSON |
-| `just build-index` | SQLite → bge-m3 임베딩 → Chroma 인덱스 |
-| `just parse <file>` | HWP/PDF → 마크다운 변환 (kordoc) |
-| `just law` | korean-law-mcp 명령어 실행 |
-| `uv run pytest` | 전체 테스트 |
+| `just setup` | 최초 1회: node·MCP·uv·모델 다운로드 |
+| `just install-runpod` | Runpod CLI 설치 및 상태 점검 (OS 자동 판별) |
+| `just build-db` | [통합] normalize → SQLite → Chroma 인덱스 재생성 |
+| `just migrate` | SQLite 마이그레이션까지만 실행 |
+| `just test` | 단위 테스트 실행 (integration 제외) |
+| `just test [type]` | 테스트 유형 선택 실행 (unit, integration, all) |
+| `just eval [t] [v] [e]` | 평가 드라이버 실행 (t: a/b, v: 골든버전, e: local/prod) |
+| `just run-mcp [t] [p]` | MCP 서버 로컬 실행 (t: stdio/sse/streamable-http, p: 포트) |
+| `just run-mcp-ui` | MCP Inspector 웹 테스트 UI 실행 (.env 바인딩) |
+| `just deploy-embedding` | [최초 1회] Runpod 템플릿/서버리스 생성 및 .env 갱신 |
+| `just embed-on` | Runpod 서버리스 워커 웜업 (min_workers=1) |
+| `just embed-off` | Runpod 서버리스 워커 과금 차단 (min_workers=0) |
+| `just docker-build` | Docker 이미지 빌드 |
+| `just docker-run` | 로컬 Docker 포그라운드 실행 (streamable-http 8000포트 서빙) |
 
 ---
 
@@ -107,8 +112,8 @@ flowchart LR
 │   ├── core/            # 이탈 탐지 순수 함수 (TDD 대상)
 │   ├── adapter/         # 외부 I/O (db · vector · embedder · 법령·문서 MCP)
 │   ├── pipe/            # 파이프라인 (오프라인 빌드 + 런타임 review)
+│   ├── eval/            # 평가 하니스 (metrics · run_eval · ablation)
 │   └── config.py
-├── eval/                # 평가 하니스 (metrics · run_eval · ablation)
 ├── tests/               # pytest (TDD 규격서)
 ├── docs/                # 기획서 + 작업 분배 카드(tasks/)
 ├── AGENTS.md            # AI·개발자 공용 가이드 (절대 규칙)
@@ -116,29 +121,6 @@ flowchart LR
 ```
 
 ---
-
-## 데이터 & 형상관리
-
-> **정답은 git, 인덱스는 재생성.**
-
-- **git 관리:** `data/03_normalized/*.json`(정답) · `data/migration/*.sql`(스키마) · `02_converted/*.md`
-- **git 제외(재생성물):** `*.sqlite3` · Chroma 인덱스 → 바이너리를 주고받지 않고 `just build-db`로 누구나 동일 DB를 만듭니다.
-
-자세히는 [data/README.md](data/README.md).
-
----
-
-## 개발 가이드 (TDD)
-
-규격은 `tests/`의 테스트로 고정돼 있습니다. **테스트를 먼저 읽고 통과하도록 구현**합니다.
-
-```bash
-uv run pytest -ra        # 남은 규격(skip) 목록 확인
-uv run pytest -q         # 통과/스킵 요약
-```
-
-- 작업 시작 전 **[AGENTS.md](AGENTS.md)** 의 절대 규칙과 본인 모듈 폴더 README를 읽으세요.
-- 모듈별 작업 카드: **[docs/tasks/](docs/tasks/README.md)**
 
 ### 절대 규칙 (요약)
 1. **1차 코드에 LLM 호출 금지** — 검색·매칭·분류만 (해석은 2차).

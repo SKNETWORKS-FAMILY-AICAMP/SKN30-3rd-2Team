@@ -85,10 +85,20 @@ class _Reranker:
     def compute_scores(self, query, documents):
         return [self._logit] * len(documents)
 
+    def compute_scores_many(self, queries, docs_per_query):
+        # 실제 어댑터와 동일하게 질의별 compute_scores 를 순서대로 위임 (서브클래스 오버라이드 존중)
+        return [self.compute_scores(q, docs) for q, docs in zip(queries, docs_per_query)]
+
     def rerank(self, query, items, text_key="text", top_k=None):
         out = [{**it, "rerank_score": self._logit} for it in items]
         out.sort(key=lambda x: x["rerank_score"], reverse=True)
         return out[:top_k] if top_k is not None else out
+
+    def rerank_many(self, queries, items_per_query, text_key="text", top_k=None):
+        return [
+            self.rerank(q, items, text_key=text_key, top_k=top_k)
+            for q, items in zip(queries, items_per_query)
+        ]
 
 
 HIGH_RERANKER = _Reranker(8.0)   # sigmoid≈0.9997 → 매칭 인정

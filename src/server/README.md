@@ -21,6 +21,33 @@
 
 모든 도구는 **stateless** — 한 번의 호출이 그 자체로 완결, 서버가 이전 상태를 기억하지 않음.
 
+### 1.1 확장 도구 (동결 4장 밖 — 자유 추가, MCP 조합력 강화용)
+
+동결 4장 표 자체는 바꾸지 않고, 별도 도구로 추가한 것들. 기존 4개 도구의 시그니처는 그대로다.
+
+| 도구 | 목적 | 입력 | 출력 |
+|---|---|---|---|
+| `classify_clause` | 단일 조항 → 이탈 판정(재정렬+매칭+분류까지 완결) | `clause_text`, `contract_type` | `{deviation, confidence, matched_standard, grounding}` |
+| `list_contract_types` | 지원 계약 종류 조회 (Discovery) | 없음 | `[str]` |
+| `list_categories` | 카테고리 + 설명 + 앵커 키워드 조회 (Discovery) | 없음 | `[{value, description, anchors}]` |
+| `list_toxic_patterns` | 독소 패턴 종류 조회 (Discovery) | 없음 | `[str]` |
+
+- `match_clause`(검색 후보만 나열)와 `classify_clause`(최종 이탈 판정까지 완결)는 역할이 다르다.
+  프론트가 "이 조항 하나만 빠르게 이탈 판정"하려면 `parse_contract` → `classify_clause` 체이닝을 쓰면
+  된다 (전체 `review_contract` 없이도 부분 워크플로우가 성립).
+- Discovery 도구는 `contract_type`/`category`/`toxic_pattern` enum 값을 **하드코딩하지 않고 런타임에
+  조회**하게 하기 위함. 도구 docstring에도 값 목록을 박아넣지 말고 이 도구들을 참조하도록 안내할 것.
+
+### 1.2 Resource (읽기 전용 표준조항 브라우징)
+
+| Resource URI | 목적 |
+|---|---|
+| `standard://{contract_type}` | 해당 계약 유형의 표준조항 요약 목록(`clause_id`, `title`, `category`) |
+| `standard://{contract_type}/{clause_id}` | 표준조항 원문 전체 |
+
+Tool이 아닌 Resource로 노출한 이유: "SW 프리랜서 표준계약서 12조 원문 보여줘" 같은 요청은 액션(도구
+호출)이 아니라 데이터 열람이므로, MCP 클라이언트가 도구를 고르지 않고도 바로 읽을 수 있게 한다.
+
 ---
 
 ## 2. 구현 구조

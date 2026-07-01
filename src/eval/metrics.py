@@ -32,8 +32,36 @@ def precision_recall(predicted_ids: Set[str], gold_ids: Set[str]) -> Dict[str, f
         return {"precision": 1.0, "recall": 1.0}
     
     true_positives = len(predicted_ids.intersection(gold_ids))
-    
+
     precision = true_positives / len(predicted_ids) if predicted_ids else 0.0
     recall = true_positives / len(gold_ids) if gold_ids else 0.0
-    
+
     return {"precision": precision, "recall": recall}
+
+def binary_scores(predicted_ids: Set[str], gold_ids: Set[str], universe: Set[str]) -> Dict[str, float]:
+    """precision_recall 을 참음성(TN)까지 확장한 혼동행렬 기반 지표.
+
+    universe = 채점 대상 전체(예: 검토된 case_id 집합). 이 안에서만 TN 을 센다.
+    precision·recall 만으로는 '모든 조항을 양성으로 찍는' 축퇴를 잡지 못한다
+    (그 경우 recall 은 자명하게 1.0). specificity(=TN/(TN+FP)) 를 함께 보면
+    정상 케이스를 정상으로 거르는 능력(참음성)이 드러난다.
+    반환: precision·recall·specificity·accuracy·f1 + 원시 카운트(tp/fp/fn/tn).
+    """
+    predicted = predicted_ids & universe
+    gold = gold_ids & universe
+    tp = len(predicted & gold)
+    fp = len(predicted - gold)
+    fn = len(gold - predicted)
+    tn = len(universe) - tp - fp - fn
+
+    precision = tp / (tp + fp) if (tp + fp) else 0.0
+    recall = tp / (tp + fn) if (tp + fn) else 0.0
+    specificity = tn / (tn + fp) if (tn + fp) else 0.0
+    accuracy = (tp + tn) / len(universe) if universe else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
+
+    return {
+        "precision": precision, "recall": recall, "specificity": specificity,
+        "accuracy": accuracy, "f1": f1,
+        "tp": tp, "fp": fp, "fn": fn, "tn": tn,
+    }

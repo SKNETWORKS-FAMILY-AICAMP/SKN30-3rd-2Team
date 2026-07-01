@@ -14,7 +14,7 @@ import requests
 
 from config import EMBEDDING_MODEL_NAME, RERANKER_MODEL_NAME, RUNPOD_API_KEY, RUNPOD_ENDPOINT_ID
 
-_TIMEOUT = 60  # RunPod cold-start 고려
+_TIMEOUT = 180  # RunPod 콜드스타트(이미지 최초 pull + 모델 로딩) 고려
 
 
 def _base_url() -> str:
@@ -139,6 +139,24 @@ class ApiReranker:
         reranked.sort(key=lambda x: x["rerank_score"], reverse=True)
         return reranked[:top_k] if top_k is not None else reranked
 
+    def compute_scores_many(
+        self, queries: List[str], docs_per_query: List[List[str]]
+    ) -> List[List[float]]:
+        """여러 질의의 (질의, 문서) 쌍 점수를 단일 네트워크 호출로 배치 계산한다(정렬 없음)."""
+        if not queries:
+            return []
+
+        output = _call_runsync({
+            "model": self._model,
+            "queries": queries,
+            "docs_per_query": docs_per_query,
+        })
+
+        scores_per_query = output.get("scores_per_query")
+        if scores_per_query is None:
+            raise RuntimeError(f"RunPod rerank 응답에 scores_per_query 키가 없습니다: {output}")
+        return [[float(s) for s in scores] for scores in scores_per_query]
+
     def rerank_many(
         self,
         queries: List[str],
@@ -146,15 +164,21 @@ class ApiReranker:
         text_key: str = "text",
         top_k: int | None = None,
     ) -> List[List[Dict[str, Any]]]:
-        """여러 질의를 재정렬한다. RunPod rerank 엔드포인트는 (query, docs) 단일 질의 규격이라
-        질의별 pair 를 한 번에 합칠 수 없어 rerank 를 질의별로 호출한다(동작은 동일, 네트워크 배치는 불가).
+        """여러 질의를 재정렬한다. 모든 질의의 (질의, 문서) 쌍을 단일 네트워크 호출로 배치 채점한다
+        (자체 구현 워커라 deploy/runpod_worker/handler.py 의 배치 rerank 라우트를 그대로 탄다).
         """
         if len(queries) != len(items_per_query):
             raise ValueError("queries 와 items_per_query 의 길이가 일치해야 합니다.")
-        return [
-            self.rerank(query, items, text_key, top_k)
-            for query, items in zip(queries, items_per_query)
-        ]
+
+        docs_per_query = [[item.get(text_key, "") for item in items] for items in items_per_query]
+        scores_per_query = self.compute_scores_many(queries, docs_per_query)
+
+        results = []
+        for items, scores in zip(items_per_query, scores_per_query):
+            reranked = [dict(item, rerank_score=score) for item, score in zip(items, scores)]
+            reranked.sort(key=lambda x: x["rerank_score"], reverse=True)
+            results.append(reranked[:top_k] if top_k is not None else reranked)
+        return results
 
 
 # =================================================================

@@ -140,6 +140,38 @@ convert:
     uv run python "src/pipe/convert.py"
 
 # ----------------------------------------------------
+# eval & test
+# ----------------------------------------------------
+
+# 평가 드라이버 실행 (예: just eval, just eval b, just eval a v2, 환경 분기는 env="prod" 등으로 지정)
+eval track="a" version="" env="local":
+    APP_ENV={{env}} PYTHONPATH=src uv run python -m eval.run_eval {{track}} {{version}}
+
+# 테스트 실행 (type: unit (기본), integration, all)
+test type="unit":
+    #!/usr/bin/env bash
+    set -e
+    case "{{type}}" in
+        unit)
+            echo "Running Unit Tests (excluding integration)..."
+            uv run pytest
+            ;;
+        integration)
+            echo "Running Integration Tests (requiring external DB/models)..."
+            uv run pytest -m "integration"
+            ;;
+        all)
+            echo "Running All Tests (Unit + Integration)..."
+            uv run pytest -m "integration or not integration"
+            ;;
+        *)
+            echo "Error: Invalid test type '{{type}}'. Choose from: unit, integration, all"
+            exit 1
+            ;;
+    esac
+ 
+
+# ----------------------------------------------------
 # 🚀 실행 단축키
 # ----------------------------------------------------
 
@@ -157,3 +189,166 @@ parse file:
 parse file:
     @echo
     npx kordoc "{{file}}" -o 'data/02_converted/{{file_stem(file)}}.md'
+
+# MCP 서버 실행 (transport: stdio, sse, streamable-http / port: 바인딩할 포트 번호)
+run-mcp transport="stdio" port="8000":
+    PYTHONPATH=src MCP_TRANSPORT={{transport}} MCP_PORT={{port}} uv run python src/app.py
+
+# MCP Inspector 웹 테스트 UI 실행 (.env 환경변수 및 PYTHONPATH 로드)
+run-mcp-ui:
+    #!/usr/bin/env bash
+    set -e
+    if [ -f ".env" ]; then
+        export $(grep -v '^#' .env | xargs)
+    fi
+    PYTHONPATH=src npx @modelcontextprotocol/inspector uv run python src/app.py
+
+# ----------------------------------------------------
+# Runpod
+# ----------------------------------------------------
+
+# Runpod CLI 설치 및 상태 점검 (OS 자동 판별)
+install-runpod:
+    #!/usr/bin/env bash
+    set -e
+    if ! command -v runpodctl &> /dev/null; then
+        echo "runpodctl CLI가 설치되어 있지 않습니다. OS에 맞게 설치를 진행합니다..."
+        OS_TYPE="$(uname -s)"
+        case "${OS_TYPE}" in
+            Darwin*)
+                echo "Detecting macOS: Installing via Homebrew..."
+                brew install runpod/runpodctl/runpodctl
+                ;;
+            Linux*)
+                echo "Detecting Linux: Downloading and copying to /usr/bin/runpodctl..."
+                wget --quiet --show-progress https://github.com/runpod/runpodctl/releases/latest/download/runpodctl-linux-amd64 -O runpodctl
+                chmod +x runpodctl
+                sudo cp runpodctl /usr/bin/runpodctl
+                rm runpodctl
+                ;;
+            CYGWIN*|MINGW*|MSYS*)
+                echo "Detecting Windows: Downloading runpodctl-windows-amd64.exe..."
+                wget https://github.com/runpod/runpodctl/releases/latest/download/runpodctl-windows-amd64.exe -O runpodctl.exe
+                mv runpodctl.exe runpodctl
+                chmod +x runpodctl
+                alias runpodctl="./runpodctl"
+                ;;
+            *)
+                echo "Error: 알 수 없는 OS 타입($OS_TYPE)입니다. 직접 runpodctl을 설치해 주세요."
+                exit 1
+                ;;
+        esac
+    else
+        echo "[OK] runpodctl CLI가 이미 설치되어 있습니다."
+    fi
+
+    echo "Running runpodctl doctor..."
+    runpodctl doctor
+
+# [최초 1회 실행] Runpod에 임베딩/리랭킹 모델 서빙용 템플릿 및 서버리스 엔드포인트를 생성하고, .env의 RUNPOD_ENDPOINT_ID를 자동 갱신합니다.
+deploy-embedding: install-runpod
+    #!/usr/bin/env bash
+    set -e
+
+    echo "Creating Runpod template..."
+    OUT=$(runpodctl template create --name workshield-embed-rerank --image ghcr.io/hong1008/workshield-embed-rerank:latest --serverless)
+    echo "$OUT"
+
+    # JSON 출력에서 "id" 키의 값을 안전하게 파싱 (jq 설치 여부와 무관하도록 python3 활용)
+    TEMPLATE_ID=$(echo "$OUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('id', ''))")
+    if [ -z "$TEMPLATE_ID" ]; then
+        echo "Error: Failed to extract Template ID from runpodctl JSON output."
+        exit 1
+    fi
+    echo "Successfully extracted Template ID: $TEMPLATE_ID"
+
+
+    echo "Creating Runpod Serverless endpoint..."
+    SLS_OUT=$(runpodctl serverless create \
+        --name workshield-embed-rerank \
+        --template-id "$TEMPLATE_ID" \
+        --gpu-id "NVIDIA RTX A4000" \
+        --workers-min 0 --workers-max 1 --idle-timeout 60)
+    echo "$SLS_OUT"
+
+    ENDPOINT_ID=$(echo "$SLS_OUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('id', ''))")
+    if [ -z "$ENDPOINT_ID" ]; then
+        echo "Error: Failed to extract Endpoint ID from runpodctl JSON output."
+        exit 1
+    fi
+    echo "Successfully extracted RUNPOD_ENDPOINT_ID: $ENDPOINT_ID"
+
+    # .env 파일 내 RUNPOD_ENDPOINT_ID 값 갱신 (없으면 추가, 있으면 치환)
+    if [ -f ".env" ]; then
+        if grep -q "^RUNPOD_ENDPOINT_ID=" .env; then
+            sed -i "s/^RUNPOD_ENDPOINT_ID=.*/RUNPOD_ENDPOINT_ID='$ENDPOINT_ID'/" .env
+        else
+            echo "RUNPOD_ENDPOINT_ID='$ENDPOINT_ID'" >> .env
+        fi
+        echo "Updated .env with RUNPOD_ENDPOINT_ID='$ENDPOINT_ID'"
+    else
+        echo "RUNPOD_ENDPOINT_ID='$ENDPOINT_ID'" > .env
+        echo "Created .env with RUNPOD_ENDPOINT_ID='$ENDPOINT_ID'"
+    fi
+
+
+# Runpod 임베딩/리랭커 워커 활성화 (웜업 - workers-min 1)
+embed-on:
+    #!/usr/bin/env bash
+    set -e
+    if [ -f ".env" ]; then
+        ENDPOINT_ID=$(grep "^RUNPOD_ENDPOINT_ID=" .env | cut -d'=' -f2 | tr -d "'\"")
+    fi
+    if [ -z "$ENDPOINT_ID" ]; then
+        echo "Error: RUNPOD_ENDPOINT_ID가 .env에 설정되어 있지 않습니다."
+        exit 1
+    fi
+    echo "Warming up Runpod Serverless endpoint ($ENDPOINT_ID)..."
+    runpodctl serverless update "$ENDPOINT_ID" --workers-min 1
+
+# Runpod 임베딩/리랭커 워커 비활성화 (과금 방지 - workers-min 0)
+embed-off:
+    #!/usr/bin/env bash
+    set -e
+    if [ -f ".env" ]; then
+        ENDPOINT_ID=$(grep "^RUNPOD_ENDPOINT_ID=" .env | cut -d'=' -f2 | tr -d "'\"")
+    fi
+    if [ -z "$ENDPOINT_ID" ]; then
+        echo "Error: RUNPOD_ENDPOINT_ID가 .env에 설정되어 있지 않습니다."
+        exit 1
+    fi
+    echo "Cooling down Runpod Serverless endpoint ($ENDPOINT_ID)..."
+    runpodctl serverless update "$ENDPOINT_ID" --workers-min 0
+
+
+# ----------------------------------------------------
+# 🐳 Docker 배포 (Node+Python 런타임, sqlite/chroma 스냅샷 포함, 임베딩/리랭커 모델 제외)
+# ----------------------------------------------------
+
+docker_image := "workshield-mcp"
+
+# 이미지 빌드 (data/03_normalized, data/migration/*.sqlite3 를 COPY — 최신 상태로 갱신하려면 먼저 `just build-db`)
+docker-build:
+    docker build -t {{docker_image}} .
+
+# 포그라운드 실행 (streamable-http :8000). .env의 RUNPOD_API_KEY/RUNPOD_ENDPOINT_ID/OPEN_LAW_API_KEY 필요
+docker-run: docker-build
+    docker run --rm -it \
+        --env-file .env \
+        -e APP_ENV=prod \
+        -p 8000:8000 \
+        --name {{docker_image}} \
+        {{docker_image}}
+
+# 백그라운드 실행
+docker-up: docker-build
+    docker run -d \
+        --env-file .env \
+        -e APP_ENV=prod \
+        -p 8000:8000 \
+        --name {{docker_image}} \
+        {{docker_image}}
+
+# 백그라운드 컨테이너 중지 및 제거
+docker-down:
+    docker rm -f {{docker_image}}

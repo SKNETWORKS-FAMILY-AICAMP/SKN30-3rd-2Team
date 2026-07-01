@@ -1,7 +1,5 @@
 # eval/ — 평가 하니스 (LLM 없이 정량 측정)
 
-> **담당: 팀원 D** · 기획서 8장
-
 "조항 몇십 개면 체크리스트로 되지 않나?"라는 반론을 **주장이 아니라 수치로** 깨는 것이 이 폴더의 목표입니다. 모든 지표는 **결정론적·재현 가능**하게 계산하며, **LLM-judge는 쓰지 않습니다**(AGENTS.md 규칙 #5).
 
 ## 무엇을 측정하나 — 두 축 + ablation
@@ -19,19 +17,73 @@
 
 | 파일 | 역할 | 테스트 |
 | --- | --- | --- |
-| [metrics.py](metrics.py) | `recall_at_k` · `reciprocal_rank` · `mrr` · `precision_recall` (순수 함수) | [test_metrics.py](../tests/eval/test_metrics.py) |
-| [run_eval.py](run_eval.py) | `evaluate(cases, k)` — 골든셋 검색 결과를 집계 (metrics 재사용) | [test_run_eval.py](../tests/eval/test_run_eval.py) |
+| [metrics.py](metrics.py) | `recall_at_k` · `reciprocal_rank` · `mrr` · `precision_recall` · `binary_scores`(참음성·특이도 포함) (순수 함수) | [test_metrics.py](../tests/eval/test_metrics.py) |
+| [run_eval.py](run_eval.py) | `evaluate(cases, k)` 순수 집계 + **Driver `main(k, version)`** (골든 실행·`vN_result.md` 생성) | [test_run_eval.py](../tests/eval/test_run_eval.py) |
 | [ablation.py](ablation.py) | `run_ablation(cases_by_variant, k)` — 변형별 비교표 (run_eval 재사용) | [test_ablation.py](../tests/eval/test_ablation.py) |
-| `golden/` | 골든셋(정답지) JSON | — |
+| `golden/` | 골든셋 정답지 + 버전별 결과·리뷰 (아래 협업 워크플로우) | — |
 
 > 재사용 사슬: **ablation → run_eval → metrics**. 같은 계산을 두 번 구현하지 마세요.
+
+---
+
+## 협업 워크플로우 — 골든셋 버전 루프 (v1 → v2 → …)
+
+골든셋은 한 번에 완성하지 않는다. **버전(vN)을 올리며 "제작 → 실행 → 리뷰 → 개선"을 반복**해
+고도화한다. 각 버전은 `golden/` 안에서 세 종류 파일로 구성되며, **버전 접두사(`vN_`)로 스코프**되어
+이전 버전과 같은 폴더에 공존해도 섞이지 않는다.
+
+| 파일 | 무엇 | 누가 / 어떻게 |
+| --- | --- | --- |
+| `golden/vN_<type>.json` | 골든셋 정답 데이터 (계약유형별: `sw_freelance`·`si_subcontract`·`sm_subcontract`) | **사람**이 제작·라벨 (git 커밋 → PR 리뷰) |
+| `golden/vN_result.md` | 평가 지표 결과 (A-1 검색 ablation + A-2/A-3 이탈·독소 분류) | **자동** — `run_eval.main()` 이 실행 끝에 생성 |
+| `golden/vN_review.md` | 리뷰: 근본 원인 + 골든셋 강·약점 + 다음 버전 반영점 | **리뷰어(사람/AI)** 가 작성 |
+
+### 한 사이클
+1. **(제작)** `golden/vN_<type>.json` 작성/수정.
+2. **(실행)** 아래 명령 → 로그 출력과 함께 `vN_result.md` 자동 생성.
+3. **(리뷰)** 결과를 보고 `vN_review.md` 에 원인·강약점·개선 체크리스트 기록.
+4. **(버전업)** 리뷰를 반영해 `v(N+1)_<type>.json` 제작 → 1로. 이전 버전 파일은 **이력으로 보존**.
+
+```bash
+# 드라이버 인자: python -m eval.run_eval [a|b] [version]   (트랙 생략 시 a, 버전 생략 시 최신)
+PYTHONPATH=src python -m eval.run_eval               # 트랙 A, 최신 버전, 로컬 모델
+APP_ENV=prod PYTHONPATH=src python -m eval.run_eval a v2   # 트랙 A, v2, RunPod
+```
+- 버전 인자를 생략하면 **가장 높은 `vN`** 을 자동 선택한다.
+- `APP_ENV=prod` 면 RunPod API 어댑터, 미설정(`local`) 이면 로컬 모델을 쓴다(둘 다 인덱스는 로컬 Chroma).
+- 선행: `just build-db` 로 인덱스가 준비돼 있어야 한다.
+
+> 결과 해석 팁: `Recall=1.0` 인데 `특이도=0` 이면 성능이 좋은 게 아니라 **모든 조항을 양성으로 찍는
+> 축퇴**다. 반드시 특이도·TN 을 함께 보고, 원인은 `vN_review.md` 에 남긴다.
+
+### 트랙 B — 실계약 문서 (같은 버전 루프, 단 3가지 조정)
+
+트랙 B(실계약 HWP/PDF 문서 단위)도 **같은 버전 루프**를 쓴다. 파일은 `golden_b/` 아래:
+
+| 파일 | 무엇 | 누가 |
+| --- | --- | --- |
+| `golden_b/raw/*.hwp\|pdf` | 실계약 원본(바이너리) | **사람**(팀 수동 확보) |
+| `golden_b/labels/vN_<id>.json` | 계약 단위 정답(`expected_missing` 등, 스키마: [D_eval.md](../docs/tasks/D_eval.md) §라벨 스키마) | **사람**(아래 순환 편향 주의) |
+| `golden_b/vN_b_result.md` | MISSING Recall(자동) + 강건성 스팟체크(사람) | 하이브리드 |
+
+```bash
+# 문서 검토 덤프(사람 확인용) + MISSING Recall 계산·저장을 함께 수행
+APP_ENV=prod PYTHONPATH=src python -m eval.run_eval b        # 트랙 B, 최신 버전
+```
+
+**트랙 A와 다른 3가지 (반드시 유의):**
+1. **result.md 가 정량+정성 하이브리드다.** 정량 지표는 **MISSING Recall 하나뿐**(자동 생성)이고, 파싱 성공·deviation 분포·NO_MATCH 폭주 등 **강건성은 정성 스팟체크**(사람이 result.md 하단 섹션을 채움). 완전 자동이 아니다.
+2. **표본이 2~3건이라 수치는 '방향 참고'다.** 문서 한 건만 뒤집혀도 크게 흔들린다. **지표를 최적화 목표로 삼지 말 것.** 트랙 B의 진짜 가치는 "실제 문서가 파싱을 깨뜨리는가"라는 정성 신호.
+3. **⚠️ 순환 편향 방어(가장 중요).** 라벨링은 "처음부터 쓰는" 게 아니라 **시스템이 제안한 MISSING 을 사람이 컨펌**하는 방식이라, 그대로 두면 MISSING Recall 이 "시스템이 자기 자신과 일치하는 정도"를 재게 되어 **낙관 편향**된다(트랙 A의 `R=1.0/특이도=0`과 같은 함정). 컨펌할 때 **시스템이 제안하지 못한 누락도 사람이 독립적으로 찾아** `expected_missing` 에 넣어야 한다.
+
+**한 사이클(B):** ① `raw/` 에 문서 확보 → ② `run_eval b` 로 덤프+지표 → ③ 덤프의 MISSING 후보를 컨펌(+독립 누락 추가)해 `labels/vN_<id>.json` 갱신 → ④ `vN_b_result.md` 의 강건성 섹션 작성 → ⑤ 리뷰 기록 → ⑥ 버전업.
 
 ---
 
 ## 골든셋 (정답지)
 
 ### 형태 (기획서 8.1)
-**(사용자 조항 ↔ 정답 표준조항) 쌍 + 이탈 라벨.** 예시: [golden/sw_freelance.example.json](golden/sw_freelance.example.json)
+**(사용자 조항 ↔ 정답 표준조항) 쌍 + 이탈 라벨.** 예시: [golden/v1_sw_freelance.json](golden/v1_sw_freelance.json)
 
 ### 케이스 필드
 | 필드 | 의미 |
@@ -65,7 +117,7 @@
 - **실제:** 실제 샘플 계약서에 사람이 정답을 라벨링한다.
 - **함정 비중을 높인다:** 검색이 틀리기 쉬운 `paraphrase`·`reorder`·`partial`을 의도적으로 많이 넣어야 ablation에서 RAG의 가치가 드러난다.
 
-> 현재 합성 골든셋 3종 92건(sw_freelance 17 · si_subcontract 25 · sm_subcontract 50).
+> 현재 합성 골든셋 **v1** 3종 92건(`v1_sw_freelance` 17 · `v1_si_subcontract` 25 · `v1_sm_subcontract` 50).
 > **평가는 두 트랙으로 나뉜다** — 트랙 A(합성 조항 단위: 검색·분류·독소·ablation)와
 > 트랙 B(실제 계약서 = 계약 단위: E2E·MISSING, 현재 보류). 상세·Driver 규격은
 > [docs/tasks/D_eval.md](../docs/tasks/D_eval.md) 를 단일 진실원으로 삼는다.

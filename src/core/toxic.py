@@ -22,12 +22,19 @@ def detect_toxic_patterns(
     Returns:
         감지된 독소조항 패턴 목록 (점수 내림차순)
     """
-    detected = []
-    # 점수가 높은 순으로 정렬
+    detected: List[ToxicPattern] = []
+    seen: set = set()
+    # 점수가 높은 순으로 정렬 (같은 패턴이 여러 청크로 중복 검색될 수 있음)
     sorted_matches = sorted(matches, key=lambda x: x[1], reverse=True)
-    
+
     for pattern, score in sorted_matches:
-        if score >= threshold:
-            detected.append(pattern)
-            
+        if score < threshold:
+            continue
+        if pattern in seen:
+            # 동일 패턴이 여러 후보로 중복 매칭돼도 최고점 1회만 남긴다
+            # (하나의 독소패턴이 여러 서브청크로 색인돼 top-k 를 같은 값으로 채우는 현상 방지)
+            continue
+        seen.add(pattern)
+        detected.append(pattern)
+
     return detected

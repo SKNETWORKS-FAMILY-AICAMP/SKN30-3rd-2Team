@@ -105,6 +105,24 @@ class Reranker(Protocol):
         """
         ...
 
+    def compute_scores_many(
+        self, queries: List[str], docs_per_query: List[List[str]]
+    ) -> List[List[float]]:
+        """여러 질의의 (질의, 문서) 쌍 점수를 한 번에 계산합니다(정렬 없음, 입력 순서 보존).
+
+        질의별 compute_scores 를 N번 부르는 대신 pair 를 flatten 해 단일 forward/네트워크
+        호출로 접습니다(rerank_many 와 동일한 배치화 취지, 단 정렬·top_k 절단은 없음).
+
+        Args:
+            queries: 기준 쿼리 텍스트 목록
+            docs_per_query: 각 쿼리에 대응하는 문서 목록의 목록 (queries 와 1:1)
+
+        Returns:
+            쿼리별 점수 리스트의 리스트. result[i] 는 queries[i] 와 docs_per_query[i]
+            각 문서의 점수이며, queries 와 1:1 로 순서가 보존됩니다.
+        """
+        ...
+
     def rerank(
         self,
         query: str,
