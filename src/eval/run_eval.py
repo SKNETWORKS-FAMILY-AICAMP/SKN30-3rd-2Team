@@ -4,7 +4,7 @@
 규격(통과해야 할 테스트): tests/eval/test_run_eval.py
 순수 집계 함수 evaluate 는 eval.metrics 를 재사용합니다(중복 구현 금지).
 
-Driver(트랙 A, 통합/수동 실행 — 단위테스트 밖): 골든셋(eval/golden/*.json)의 user_clause 를
+Driver(트랙 A, 통합/수동 실행 — 단위테스트 밖): 골든셋(src/eval/golden/*.json)의 user_clause 를
 실제 어댑터(vector·reranker)와 review_contract 전체 파이프에 흘려 cases 를 만들고,
 run_eval.evaluate / eval.ablation.run_ablation / eval.metrics.precision_recall 로 집계합니다.
 규격: docs/tasks/D_eval.md §Driver.
@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 # adapter/contracts/pipe(src/ 하위) 를 import 하기 위해 모듈 경로에 추가 (실행 위치 무관)
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from eval import metrics
 
@@ -179,7 +179,7 @@ def toxic_precision_recall(golden: List[Dict], review_results: Dict[str, Any]) -
     return metrics.precision_recall(predicted, gold)
 
 
-def _load_golden(golden_dir: str = "eval/golden") -> List[Dict]:
+def _load_golden(golden_dir: str = "src/eval/golden") -> List[Dict]:
     import glob
     import json
 

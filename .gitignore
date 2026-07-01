@@ -26,3 +26,7 @@ data/migration/*/
 
 # 사용자 업로드 임시 파일
 data/99_uploads/
+
+# 로컬 임베딩/리랭커 모델 및 ONNX/양자화 바이너리 (대용량 파일 제외)
+*onnx*/
+*onnx*.zip

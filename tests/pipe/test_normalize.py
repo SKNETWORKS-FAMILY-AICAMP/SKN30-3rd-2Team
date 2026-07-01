@@ -15,6 +15,7 @@ from contracts.enums import Category, ContractType
 from contracts.models import Clause
 
 # pytestmark = pytest.mark.skip(reason="리뷰 반영 후 skip 삭제")
+pytestmark = pytest.mark.integration
 
 # 파일 내 모든 테스트를 통합 테스트(integration)로 지정
 # setup_module 또는 개별 테스트에서 빌드 호출
