@@ -1,10 +1,10 @@
 import logging
-import asyncio
-import os
-from typing import List, Dict, Any, Optional
+from typing import Dict, Any
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+
+from adapter.async_bridge import run_coroutine_blocking
 
 class KoreanLawMCPClient:
     """
@@ -46,15 +46,13 @@ class KoreanLawMCPClient:
                 return result.content[0].text
 
     def _run_mcp_sync(self, tool_name: str, arguments: Dict[str, Any]) -> str:
-        """비동기 MCP 호출 함수를 동기식 컨텍스트로 실행할 수 있게 래핑합니다."""
+        """비동기 MCP 호출 함수를 동기식 컨텍스트로 실행할 수 있게 래핑합니다.
+
+        FastMCP 서버의 이벤트 루프를 블로킹하지 않도록, 실행 중인 루프가 있으면 별도
+        스레드의 새 루프에서 실행한다(async_bridge 참고 — 데드락 방지).
+        """
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                return asyncio.run_coroutine_threadsafe(
-                    self._call_mcp_tool(tool_name, arguments), loop
-                ).result()
-            else:
-                return asyncio.run(self._call_mcp_tool(tool_name, arguments))
+            return run_coroutine_blocking(self._call_mcp_tool(tool_name, arguments))
         except Exception as e:
             logging.error(f"[Error] korean-law MCP 툴 '{tool_name}' 호출 실패: {e}")
             raise RuntimeError(f"korean-law MCP 연동 오류: {e}") from e

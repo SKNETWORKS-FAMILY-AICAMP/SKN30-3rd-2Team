@@ -11,6 +11,12 @@ if current_dir not in sys.path:
 from server.server import mcp
 
 if __name__ == "__main__":
+    import logging
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="[%(asctime)s] [%(levelname)s] (%(filename)s:%(lineno)d) %(message)s"
+    )
+
     # 로컬 개발: 기본 stdio. 컨테이너 배포: MCP_TRANSPORT=streamable-http (Dockerfile 참고)
     transport = os.getenv("MCP_TRANSPORT", "stdio")
     if transport != "stdio":
