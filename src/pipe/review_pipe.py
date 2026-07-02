@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 from contracts.enums import Category, ContractType, Deviation, ToxicPattern, ProgressPhase
 from contracts.models import Clause, StandardClause, StandardSubChunk, DeviationResult, GroundingLaw
 from contracts.ports import Grounder, Graph
-from adapter.port import Retriever, Reranker
+from adapter.port import Retriever, Reranker, Embedder
 from core import (
     check_coverage,
     classify_clause_deviation,
@@ -139,6 +139,7 @@ def review_contract(
     contract_type: ContractType,
     *,
     retriever: Retriever,
+    embedder: Embedder,
     reranker: Reranker,
     grounder: Grounder,
     all_standard_clauses: List[StandardClause],
@@ -172,7 +173,9 @@ def review_contract(
       6. detect_missing_clauses 로 누락 표준조항 추가
 
     Args:
-        retriever: 벡터 DB·BM25 하이브리드 검색 포트. 배치 검색(search_many)으로 호출됩니다.
+        retriever: 벡터 DB·BM25 하이브리드 검색 포트. 배치 검색(hybrid_search_many)으로 호출됩니다.
+        embedder: 조항 텍스트를 밀도 벡터로 변환하는 포트. retriever 는 임베딩을 계산하지 않으므로
+                  배치 검색 전에 이 포트로 clause_texts 를 1회 임베딩해 재사용합니다.
         reranker: 크로스 인코더 재정렬 포트. 후보 정렬뿐 아니라 커버리지 체크의 M×N
                   유사도 매트릭스 계산(compute_scores)에도 재사용됩니다.
         grounder: 이탈 조항(CHANGED/MISSING)에 관련 법령 근거를 부착하는 포트.
@@ -221,17 +224,19 @@ def review_contract(
     if progress_callback:
         progress_callback(0, len(clauses), ProgressPhase.BATCH_SEARCH)
     logger.info("[review_contract] 1단계: 벡터 DB 배치 검색을 수행합니다 (표준/서브청크/독소).")
+    # clause_texts 임베딩은 표준/서브청크/독소 세 컬렉션이 공유하므로 여기서 1회만 계산한다.
+    clause_vectors = embedder.embed_documents(clause_texts) if clause_texts else []
     empty_batch: List[List[Dict[str, Any]]] = [[] for _ in clauses]
     std_batch = (
-        retriever.search_many(STANDARD_COLLECTION, clause_texts, "hybrid", type_filter, top_k)
+        retriever.hybrid_search_many(STANDARD_COLLECTION, clause_vectors, clause_texts, type_filter, top_k)
         if clause_texts else []
     )
     sub_batch = (
-        retriever.search_many(SUB_CHUNK_COLLECTION, clause_texts, "hybrid", type_filter, top_k)
+        retriever.hybrid_search_many(SUB_CHUNK_COLLECTION, clause_vectors, clause_texts, type_filter, top_k)
         if (clause_texts and use_sub_chunk) else empty_batch
     )
     toxic_batch = (
-        retriever.search_many(TOXIC_COLLECTION, clause_texts, "hybrid", None, toxic_top_k)
+        retriever.hybrid_search_many(TOXIC_COLLECTION, clause_vectors, clause_texts, None, toxic_top_k)
         if (clause_texts and use_toxic) else empty_batch
     )
     logger.info(

@@ -133,16 +133,17 @@ class _MemoizingEmbedder:
 
 
 def _install_eval_embedding_cache() -> None:
-    """공유 VectorManager 싱글톤의 임베더를 드라이버 실행 동안 캐싱 래퍼로 교체한다.
+    """공유 embedder 싱글톤을 드라이버 실행 동안 캐싱 래퍼로 교체한다.
 
-    A-1·A-2 가 모두 `from adapter import vector` 로 같은 싱글톤을 쓰므로, 여기 한 곳만
+    A-1·A-2 가 모두 `from adapter import embedder` 로 같은 싱글톤을 쓰므로, 여기 한 곳만
     감싸면 전체 실행이 하나의 캐시를 공유해 골든 조항을 딱 한 번만 임베딩한다.
     이미 래핑돼 있으면(중복 호출) 그대로 둔다.
+    (VectorManager 는 더 이상 Embedder 에 의존하지 않으므로 adapter.embedder 자체를 감싼다.)
     """
-    from adapter import vector
+    import adapter
 
-    if not isinstance(vector._embedder, _MemoizingEmbedder):
-        vector._embedder = _MemoizingEmbedder(vector._embedder)
+    if not isinstance(adapter.embedder, _MemoizingEmbedder):
+        adapter.embedder = _MemoizingEmbedder(adapter.embedder)
 
 
 class NullGrounder:
@@ -168,7 +169,7 @@ def build_cases_by_variant(golden: List[Dict], k: int, contract_type: str) -> Di
     검색해 hybrid 는 상위 k 슬라이스로, hybrid_rerank 는 rerank_many 재정렬로 얻습니다
     (중복 hybrid 검색 제거; 07-01 §1 불변식: 매칭엔 rerank_score 만 사용).
     """
-    from adapter import vector, reranker  # 지연 임포트: 모델 로드는 driver 실행 시에만
+    from adapter import vector, reranker, embedder  # 지연 임포트: 모델 로드는 driver 실행 시에만
 
     scored = [g for g in golden if g.get("gold_clause_id") is not None]
     if not scored:
@@ -185,11 +186,14 @@ def build_cases_by_variant(golden: List[Dict], k: int, contract_type: str) -> Di
             for gid, hits in zip(gold_ids, hits_per_query)
         ]
 
-    bm25 = vector.search_many(STANDARD_COLLECTION, queries, "bm25", type_filter, k)
-    dense = vector.search_many(STANDARD_COLLECTION, queries, "dense", type_filter, k)
+    bm25 = vector.bm25_search_many(STANDARD_COLLECTION, queries, type_filter, k)
+
+    # dense·hybrid 가 같은 벡터를 공유하도록 임베딩은 여기서 1회만 계산한다.
+    vectors = embedder.embed_documents(queries)
+    dense = vector.dense_search_many(STANDARD_COLLECTION, vectors, type_filter, k)
 
     # hybrid 풀을 k*4 로 한 번만 검색 → hybrid(상위 k)·hybrid_rerank(재정렬)가 공유
-    pool = vector.search_many(STANDARD_COLLECTION, queries, "hybrid", type_filter, k * 4)
+    pool = vector.hybrid_search_many(STANDARD_COLLECTION, vectors, queries, type_filter, k * 4)
     hybrid = [hits[:k] for hits in pool]
     reranked = reranker.rerank_many(queries, pool, text_key="text", top_k=k)
 
@@ -244,7 +248,7 @@ def review_golden_clauses(golden: List[Dict], contract_type: str) -> Dict[str, A
     일치하는 항목만 추립니다. review_contract 는 매칭 안 된 나머지 표준조항을 MISSING
     (user_clause="") 으로 함께 반환하므로 자연히 제외됩니다.
     """
-    from adapter import vector, reranker
+    from adapter import vector, reranker, embedder
     from contracts.enums import ContractType
     from contracts.models import Clause
     from pipe.review_pipe import review_contract
@@ -262,6 +266,7 @@ def review_golden_clauses(golden: List[Dict], contract_type: str) -> Dict[str, A
     review_results = review_contract(
         clauses, ct,
         retriever=vector,
+        embedder=embedder,
         reranker=reranker,
         grounder=grounder,
         all_standard_clauses=standards,
@@ -537,13 +542,13 @@ def review_document_against_type(clauses: List[Any], ct: Any) -> tuple[List[Any]
     NullGrounder + use_toxic=False 로 생략(네트워크·불필요 계산 차단).
     """
     from pipe.review_pipe import review_contract
-    from adapter import vector, reranker
+    from adapter import vector, reranker, embedder
 
     standards = _load_standards(ct.value)
     sub_chunks = _load_sub_chunks(ct.value)  # 의미 커버리지 게이트 입력 (없으면 difflib 폴백)
     results = review_contract(
         clauses, ct,
-        retriever=vector, reranker=reranker, grounder=NullGrounder(),
+        retriever=vector, embedder=embedder, reranker=reranker, grounder=NullGrounder(),
         all_standard_clauses=standards, all_standard_sub_chunks=sub_chunks, use_toxic=False,
     )
     return results, len(standards)

@@ -47,7 +47,7 @@ _TOXIC_HIT = {
 
 
 class FakeRetriever:
-    """컬렉션·질의별 고정 결과를 반환하는 검색 포트 fake (search_many 로 배치 검색)."""
+    """컬렉션·질의별 고정 결과를 반환하는 검색 포트 fake (hybrid_search_many 로 배치 검색)."""
     def _search_one(self, collection_name: str, query: str) -> List[Dict[str, Any]]:
         if collection_name == "standard_clauses":
             if "저작권" in query or "지식재산" in query:
@@ -59,10 +59,7 @@ class FakeRetriever:
             return []
         return []  # standard_sub_chunks 기본 없음
 
-    def search(self, collection_name, query, search_type="hybrid", metadata_filter=None, top_k=5):
-        return self._search_one(collection_name, query)
-
-    def search_many(self, collection_name, queries, search_type="hybrid", metadata_filter=None, top_k=5):
+    def hybrid_search_many(self, collection_name, vectors, queries, metadata_filter=None, top_k=5):
         return [self._search_one(collection_name, q) for q in queries]
 
 
@@ -75,6 +72,18 @@ class FakeSubChunkRetriever(FakeRetriever):
         if collection_name == "standard_clauses":
             return []  # 조항 레벨은 일부러 미스
         return super()._search_one(collection_name, query)
+
+
+class FakeEmbedder:
+    """검색 fake 가 벡터 값 자체는 쓰지 않으므로, 텍스트 수만큼 더미 벡터를 반환한다."""
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        return [[0.0] for _ in texts]
+
+    def embed_query(self, text: str) -> List[float]:
+        return [0.0]
+
+    def compute_similarity(self, query: str, documents: List[str]) -> List[float]:
+        return [0.0] * len(documents)
 
 
 class _Reranker:
@@ -117,6 +126,7 @@ def _review(clauses, retriever=None, reranker=HIGH_RERANKER):
     return review_contract(
         clauses, ContractType.SW_FREELANCE,
         retriever=retriever or FakeRetriever(),
+        embedder=FakeEmbedder(),
         reranker=reranker,
         grounder=FakeGrounder(),
         all_standard_clauses=ALL_STANDARD,
@@ -249,6 +259,7 @@ def _review58(clauses, *, sub_map=_ART58_SUB_MAP, reranker=None, use_coverage=Tr
     return review_contract(
         clauses, ContractType.SW_FREELANCE,
         retriever=_Art58Retriever(),
+        embedder=FakeEmbedder(),
         reranker=reranker or _PartialCoverageReranker(),
         grounder=FakeGrounder(),
         all_standard_clauses=_ALL_STD_WITH_58,
@@ -344,6 +355,7 @@ def test_progress_callback_호출_검증():
     review_contract(
         [clause1, clause2], ContractType.SW_FREELANCE,
         retriever=FakeRetriever(),
+        embedder=FakeEmbedder(),
         reranker=HIGH_RERANKER,
         grounder=FakeGrounder(),
         all_standard_clauses=ALL_STANDARD,

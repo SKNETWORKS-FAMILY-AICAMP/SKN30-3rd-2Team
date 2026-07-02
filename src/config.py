@@ -7,7 +7,6 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 
-app_env = os.getenv("APP_ENV", "local")
 
 # 1. 프로젝트 루트 경로 설정 (프로젝트 어느 위치에서든 .env·data를 찾기 위함)
 # config.py 는 src/ 안에 있으므로, 프로젝트 루트는 parent.parent 입니다.
@@ -20,6 +19,8 @@ if env_path.exists():
     load_dotenv(dotenv_path=env_path)
 else:
     load_dotenv() # 기본 .env 로드 시도
+
+app_env = os.getenv("APP_ENV", "local")
 
 OPEN_LAW_API_KEY: str | None = os.getenv('OPEN_LAW_API_KEY')
 KOREAN_LAW_MCP_URL: str = os.getenv('KOREAN_LAW_MCP_URL', 'https://korean-law-mcp.fly.dev/mcp')

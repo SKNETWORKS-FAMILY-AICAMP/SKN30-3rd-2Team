@@ -1,0 +1,29 @@
+# 절충안 번들: MCP 서버(mcp) + 데모(demo)를 별개 컨테이너로 한 번에 기동.
+# 논리상 2-프로세스(서버는 독립 MCP 제품), 운영상 1-deploy.
+services:
+  mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: workshield-mcp
+    env_file: .env            # OPEN_LAW_API_KEY, RUNPOD_API_KEY, RUNPOD_ENDPOINT_ID (prod 임베딩)
+    environment:
+      APP_ENV: prod
+      MCP_TRANSPORT: streamable-http
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: "8000"
+    ports:
+      - "8000:8000"
+  demo:
+    build:
+      context: .
+      dockerfile: Dockerfile.demo
+    image: workshield-demo
+    depends_on:
+      - mcp
+    env_file: demo/.env       # LLM_PROVIDER, GEMINI_API_KEY, GEMINI_MODEL
+    environment:
+      APP_ENV: prod
+      WORKSHIELD_MCP_URL: http://mcp:8000/mcp
+    ports:
+      - "8501:8501"

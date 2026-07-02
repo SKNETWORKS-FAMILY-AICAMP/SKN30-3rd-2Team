@@ -43,7 +43,7 @@ async def test_review_contract_async_progress(
         uncovered_sub_chunk_ids=[]
     )
 
-    def fake_pipe(clauses, contract_type, retriever, reranker, grounder, all_standard_clauses, all_standard_sub_chunks, progress_callback=None):
+    def fake_pipe(clauses, contract_type, retriever, embedder, reranker, grounder, all_standard_clauses, all_standard_sub_chunks, progress_callback=None):
         if progress_callback:
             progress_callback(0, 2, ProgressPhase.PREPARE)
             progress_callback(0, 2, ProgressPhase.BATCH_SEARCH)

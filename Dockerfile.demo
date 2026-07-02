@@ -1,0 +1,11 @@
+# WorkShield 데모(Streamlit) 이미지 — 절충안 번들에서 MCP 서버와 별개 프로세스로 뜨는 데모 측.
+# 루트 MCP 서버 이미지(Dockerfile)와 달리 chromadb·torch 등 무거운 의존성을 담지 않는다.
+FROM python:3.13-slim
+WORKDIR /app
+COPY demo/ ./demo/
+RUN pip install --no-cache-dir \
+    "streamlit>=1.58.0" "openai>=2.44.0" "mcp[cli]>=1.28.1" "httpx>=0.28.1" "python-dotenv>=1.0.0"
+ENV APP_ENV=prod \
+    WORKSHIELD_MCP_URL=http://mcp:8000/mcp
+EXPOSE 8501
+CMD ["streamlit", "run", "demo/streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0"]

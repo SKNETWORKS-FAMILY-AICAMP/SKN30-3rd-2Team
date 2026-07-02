@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         curl ca-certificates gnupg \
     && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
-    && npm install -g korean-law-mcp kordoc pdfjs-dist \
+    && npm install -g korean-law-mcp kordoc pdfjs-dist@4.10.38 \
     && apt-get purge -y curl gnupg && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
 

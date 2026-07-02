@@ -394,3 +394,11 @@ docker-up: docker-build
 # 백그라운드 컨테이너 중지 및 제거
 docker-down:
     docker rm -f {{docker_image}}
+
+# 절충안 번들: 서버+데모 2개 컨테이너 한 번에 기동 (http://localhost:8501)
+demo-bundle-up:
+    docker compose up --build -d
+
+# 번들 종료
+demo-bundle-down:
+    docker compose down

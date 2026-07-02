@@ -40,22 +40,24 @@ class Embedder(Protocol):
 
 
 class Retriever(Protocol):
-    """벡터 데이터베이스(ChromaDB) 및 어휘 색인(BM25)을 통해 유사 조항을 검색하는 포트 인터페이스"""
+    """벡터 데이터베이스(ChromaDB) 및 어휘 색인(BM25)을 통해 유사 조항을 검색하는 포트 인터페이스
 
-    def search(
+    dense/hybrid 계열은 임베딩 계산을 책임지지 않습니다 — 호출부가 Embedder 로 미리 계산한
+    벡터를 인자로 넘겨야 합니다(어댑터가 Embedder 에 의존하지 않도록 분리).
+    """
+
+    def dense_search(
         self,
         collection_name: str,
-        query: str,
-        search_type: str = "hybrid",
+        vector: List[float],
         metadata_filter: Optional[Dict[str, Any]] = None,
         top_k: int = 5,
     ) -> List[Dict[str, Any]]:
-        """색인된 데이터베이스에서 특정 질의와 의미적/키워드적으로 가장 잘 매칭되는 조항들을 검색합니다.
+        """이미 계산된 밀도(dense) 임베딩 벡터로 코사인 유사도 기반 조회를 수행합니다.
 
         Args:
             collection_name: 검색 대상 데이터베이스 컬렉션 이름 (예: "standard_clauses")
-            query: 검색을 유도할 질의(쿼리) 텍스트
-            search_type: 검색 방식 (예: "hybrid", "dense", "bm25")
+            vector: 질의 텍스트를 Embedder 로 미리 임베딩한 밀도 벡터
             metadata_filter: 특정 계약 유형이나 버전을 필터링할 메타데이터 조건 (옵션)
             top_k: 검색해서 가져올 최상위 후보군의 갯수
 
@@ -64,23 +66,106 @@ class Retriever(Protocol):
         """
         ...
 
-    def search_many(
+    def bm25_search(
         self,
         collection_name: str,
-        queries: List[str],
-        search_type: str = "hybrid",
+        query: str,
+        metadata_filter: Optional[Dict[str, Any]] = None,
+        top_k: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """질의 텍스트로 어휘 유사성(BM25) 기반 조회를 수행합니다.
+
+        Args:
+            collection_name: 검색 대상 데이터베이스 컬렉션 이름
+            query: 검색을 유도할 질의(쿼리) 텍스트
+            metadata_filter: 특정 계약 유형이나 버전을 필터링할 메타데이터 조건 (옵션)
+            top_k: 검색해서 가져올 최상위 후보군의 갯수
+
+        Returns:
+            유사도 점수와 식별 메타데이터를 포함한 검색 결과 사전(Dict) 목록
+        """
+        ...
+
+    def hybrid_search(
+        self,
+        collection_name: str,
+        vector: List[float],
+        query: str,
+        metadata_filter: Optional[Dict[str, Any]] = None,
+        top_k: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """이미 계산된 밀도 벡터와 질의 텍스트를 함께 사용해 dense·BM25 결과를 RRF 로 융합합니다.
+
+        Args:
+            collection_name: 검색 대상 데이터베이스 컬렉션 이름
+            vector: 질의 텍스트를 Embedder 로 미리 임베딩한 밀도 벡터
+            query: BM25 어휘 검색에 사용할 질의(쿼리) 텍스트 (vector 와 동일 원문이어야 함)
+            metadata_filter: 특정 계약 유형이나 버전을 필터링할 메타데이터 조건 (옵션)
+            top_k: 검색해서 가져올 최상위 후보군의 갯수
+
+        Returns:
+            유사도 점수와 식별 메타데이터를 포함한 검색 결과 사전(Dict) 목록
+        """
+        ...
+
+    def dense_search_many(
+        self,
+        collection_name: str,
+        vectors: List[List[float]],
         metadata_filter: Optional[Dict[str, Any]] = None,
         top_k: int = 5,
     ) -> List[List[Dict[str, Any]]]:
-        """여러 질의를 한 번에 검색합니다. dense 임베딩을 배치로 계산해 모델 왕복(N회→1회)을 줄입니다.
+        """여러 질의의 밀도 벡터를 한 번에 조회합니다. 벡터는 호출부가 배치로 미리 계산해 둡니다.
 
-        조항 단위 검토 루프에서 조항마다 search 를 개별 호출하면 임베딩 왕복이 N번 직렬화됩니다.
-        이 메서드는 임베딩을 배치화하여 지연시간을 낮춥니다. 반환 리스트는 queries 와 1:1 정렬됩니다.
+        Args:
+            collection_name: 검색 대상 컬렉션 이름
+            vectors: 질의별 밀도 임베딩 벡터 목록 (Embedder.embed_documents 등으로 배치 계산)
+            metadata_filter: 메타데이터 필터 조건 (옵션)
+            top_k: 각 질의당 반환할 최상위 후보 갯수
+
+        Returns:
+            vectors 와 같은 순서로 정렬된, 질의별 검색 결과 목록의 목록
+        """
+        ...
+
+    def bm25_search_many(
+        self,
+        collection_name: str,
+        queries: List[str],
+        metadata_filter: Optional[Dict[str, Any]] = None,
+        top_k: int = 5,
+    ) -> List[List[Dict[str, Any]]]:
+        """여러 질의를 BM25 로 한 번에 검색합니다.
 
         Args:
             collection_name: 검색 대상 컬렉션 이름
             queries: 검색할 질의 텍스트 목록
-            search_type: 검색 방식 ("hybrid", "dense", "bm25")
+            metadata_filter: 메타데이터 필터 조건 (옵션)
+            top_k: 각 질의당 반환할 최상위 후보 갯수
+
+        Returns:
+            queries 와 같은 순서로 정렬된, 질의별 검색 결과 목록의 목록
+        """
+        ...
+
+    def hybrid_search_many(
+        self,
+        collection_name: str,
+        vectors: List[List[float]],
+        queries: List[str],
+        metadata_filter: Optional[Dict[str, Any]] = None,
+        top_k: int = 5,
+    ) -> List[List[Dict[str, Any]]]:
+        """여러 질의를 하이브리드(dense+BM25) 방식으로 한 번에 검색합니다.
+
+        조항 단위 검토 루프에서 조항마다 개별 호출하면 임베딩 왕복이 N번 직렬화됩니다.
+        호출부가 vectors 를 배치로 미리 계산해 넘기면 임베딩 재계산 없이 재사용됩니다.
+        반환 리스트는 queries(및 vectors)와 1:1 정렬됩니다.
+
+        Args:
+            collection_name: 검색 대상 컬렉션 이름
+            vectors: queries 와 1:1 대응하는 질의별 밀도 임베딩 벡터 목록
+            queries: 검색할 질의 텍스트 목록 (BM25 어휘 검색용)
             metadata_filter: 메타데이터 필터 조건 (옵션)
             top_k: 각 질의당 반환할 최상위 후보 갯수
 

@@ -262,12 +262,14 @@ class VectorManager:
         return scored_docs
 
     def dense_search(
-        self, collection_name: str, query: str, metadata_filter: Optional[Dict[str, Any]] = None, top_k: int = 5
+        self, collection_name: str, vector: List[float], metadata_filter: Optional[Dict[str, Any]] = None, top_k: int = 5
     ) -> List[Dict[str, Any]]:
-        """Dense 임베딩 코사인 벡터 비교 기반의 밀도(dense) 조회를 수행합니다."""
-        query_vector = self._embedder.embed_query(query)
+        """이미 계산된 밀도(dense) 임베딩 벡터로 코사인 벡터 비교 기반 조회를 수행합니다.
+
+        임베딩 계산은 호출부 책임입니다 (VectorManager 는 Embedder 에 의존하지 않음).
+        """
         collection = self.get_collection(collection_name)
-        return self._dense_query(collection, query_vector, metadata_filter, top_k)
+        return self._dense_query(collection, vector, metadata_filter, top_k)
 
     def bm25_search(
         self, collection_name: str, query: str, metadata_filter: Optional[Dict[str, Any]] = None, top_k: int = 5
@@ -317,15 +319,22 @@ class VectorManager:
         return fused_docs
 
     def hybrid_search(
-        self, collection_name: str, query: str, metadata_filter: Optional[Dict[str, Any]] = None, top_k: int = 5
+        self,
+        collection_name: str,
+        vector: List[float],
+        query: str,
+        metadata_filter: Optional[Dict[str, Any]] = None,
+        top_k: int = 5,
     ) -> List[Dict[str, Any]]:
-        """Dense 벡터 매칭 및 BM25 키워드 비교를 통합한 하이브리드 RAG 검색을 수행합니다.
+        """이미 계산된 밀도 벡터와 질의 텍스트를 함께 사용해 dense·BM25 결과를 RRF 로 융합합니다.
 
         Dense·BM25 두 검색은 상호 독립적이므로 병렬 실행하여 지연시간을 max(dense, bm25)로 줄인다.
+        임베딩 계산은 호출부 책임입니다 (VectorManager 는 Embedder 에 의존하지 않음).
         """
         fetch_k = top_k * 2
+        collection = self.get_collection(collection_name)
         with ThreadPoolExecutor(max_workers=2) as pool:
-            dense_future = pool.submit(self.dense_search, collection_name, query, metadata_filter, fetch_k)
+            dense_future = pool.submit(self._dense_query, collection, vector, metadata_filter, fetch_k)
             bm25_future = pool.submit(self.bm25_search, collection_name, query, metadata_filter, fetch_k)
             dense_res = dense_future.result()
             bm25_res = bm25_future.result()
@@ -333,53 +342,59 @@ class VectorManager:
         fused_results = self._reciprocal_rank_fusion(dense_res, bm25_res)
         return fused_results[:top_k]
 
-    def search(
-        self, collection_name: str, query: str, search_type: str = "hybrid", metadata_filter: Optional[Dict[str, Any]] = None, top_k: int = 5
-    ) -> List[Dict[str, Any]]:
-        """검색 방식 파라미터에 따라 dense, bm25(sparse), hybrid 방식을 범용 매핑해 조회하는 인터페이스입니다."""
-        if search_type == "dense":
-            return self.dense_search(collection_name, query, metadata_filter, top_k)
-        elif search_type in ("bm25", "sparse"):
-            return self.bm25_search(collection_name, query, metadata_filter, top_k)
-        elif search_type == "hybrid":
-            return self.hybrid_search(collection_name, query, metadata_filter, top_k)
-        else:
-            raise ValueError(f"지원하지 않는 검색 유형입니다: {search_type}")
-
-    def search_many(
-        self, collection_name: str, queries: List[str], search_type: str = "hybrid",
-        metadata_filter: Optional[Dict[str, Any]] = None, top_k: int = 5
+    def dense_search_many(
+        self,
+        collection_name: str,
+        vectors: List[List[float]],
+        metadata_filter: Optional[Dict[str, Any]] = None,
+        top_k: int = 5,
     ) -> List[List[Dict[str, Any]]]:
-        """여러 질의를 배치로 검색합니다. dense 임베딩을 embed_documents로 한 번에 계산해 재사용합니다.
+        """여러 질의의 밀도 벡터를 한 번에 조회합니다. 벡터는 호출부가 배치로 미리 계산해 둡니다."""
+        if not vectors:
+            return []
+        collection = self.get_collection(collection_name)
+        return [self._dense_query(collection, v, metadata_filter, top_k) for v in vectors]
 
-        조항별로 search 를 개별 호출할 때 발생하는 N회 임베딩 왕복을, 컬렉션당 1회 배치로 줄입니다.
+    def bm25_search_many(
+        self,
+        collection_name: str,
+        queries: List[str],
+        metadata_filter: Optional[Dict[str, Any]] = None,
+        top_k: int = 5,
+    ) -> List[List[Dict[str, Any]]]:
+        """여러 질의를 BM25 로 한 번에 검색합니다.
+
         BM25 인덱스는 (collection, filter)별로 캐시되므로 질의마다 재구축하지 않습니다.
-        반환은 queries 와 1:1 정렬된 결과 목록의 목록입니다.
+        """
+        if not queries:
+            return []
+        return [self.bm25_search(collection_name, q, metadata_filter, top_k) for q in queries]
+
+    def hybrid_search_many(
+        self,
+        collection_name: str,
+        vectors: List[List[float]],
+        queries: List[str],
+        metadata_filter: Optional[Dict[str, Any]] = None,
+        top_k: int = 5,
+    ) -> List[List[Dict[str, Any]]]:
+        """여러 질의를 하이브리드(dense+BM25) 방식으로 한 번에 검색합니다.
+
+        조항별로 hybrid_search 를 개별 호출할 때 발생하는 N회 임베딩 왕복을, 호출부가 vectors 를
+        배치로 미리 계산해 넘기게 하여 없앱니다. 반환은 queries 와 1:1 정렬된 결과 목록의 목록입니다.
         """
         if not queries:
             return []
 
-        if search_type == "dense":
-            vectors = self._embedder.embed_documents(queries)
-            collection = self.get_collection(collection_name)
-            return [self._dense_query(collection, v, metadata_filter, top_k) for v in vectors]
-
-        if search_type in ("bm25", "sparse"):
-            return [self.bm25_search(collection_name, q, metadata_filter, top_k) for q in queries]
-
-        if search_type == "hybrid":
-            fetch_k = top_k * 2
-            vectors = self._embedder.embed_documents(queries)  # 배치 임베딩 1회
-            collection = self.get_collection(collection_name)
-            fused_per_query = []
-            for query, vector in zip(queries, vectors):
-                dense_res = self._dense_query(collection, vector, metadata_filter, fetch_k)
-                bm25_res = self.bm25_search(collection_name, query, metadata_filter, fetch_k)
-                fused = self._reciprocal_rank_fusion(dense_res, bm25_res)
-                fused_per_query.append(fused[:top_k])
-            return fused_per_query
-
-        raise ValueError(f"지원하지 않는 검색 유형입니다: {search_type}")
+        fetch_k = top_k * 2
+        collection = self.get_collection(collection_name)
+        fused_per_query = []
+        for query, vector in zip(queries, vectors):
+            dense_res = self._dense_query(collection, vector, metadata_filter, fetch_k)
+            bm25_res = self.bm25_search(collection_name, query, metadata_filter, fetch_k)
+            fused = self._reciprocal_rank_fusion(dense_res, bm25_res)
+            fused_per_query.append(fused[:top_k])
+        return fused_per_query
 
     def keyword_search(self, collection_name: str, keyword: str, metadata_filter: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """Chroma의 where_document 필터를 사용해 키워드 텍스트가 포함된 문서를 엄격 발췌합니다."""

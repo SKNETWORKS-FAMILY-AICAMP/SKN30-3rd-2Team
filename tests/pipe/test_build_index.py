@@ -28,8 +28,9 @@ def test_빌드하면_시드조항_건수만큼_적재():
 
 def test_빌드후_하이브리드_검색으로_조회됨():
     from pipe.build_index import build_standard_index
-    from adapter import vector
+    from adapter import vector, embedder
     build_standard_index()
-    results = vector.search("standard_clauses", "저작권의 귀속", search_type="hybrid", top_k=3)
+    query = "저작권의 귀속"
+    results = vector.hybrid_search("standard_clauses", embedder.embed_query(query), query, top_k=3)
     ids = [r["id"] for r in results]
     assert "sw_freelance-art20" in ids  # 지식재산권의 귀속 조항

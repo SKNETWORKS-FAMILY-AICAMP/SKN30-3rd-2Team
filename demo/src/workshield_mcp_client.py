@@ -3,6 +3,7 @@ import json
 import os
 import sys
 from contextlib import AsyncExitStack
+from datetime import timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -24,12 +25,14 @@ class WorkShieldMCPClient:
     'prod'일 때는 Streamable HTTP 방식을 사용하여 원격/로컬 서버 엔드포인트에 접속합니다.
     """
 
-    def __init__(self):
+    def __init__(self, read_timeout: Optional[float] = None):
         self.app_env = app_env
         # .env가 없거나 빈 경우 localhost:8000를 기본값으로 사용
         self.mcp_url = WORKSHIELD_MCP_URL
         self._exit_stack: Optional[AsyncExitStack] = None
         self.session: Optional[ClientSession] = None
+        # 세션의 개별 요청 응답 대기 한도. None이면 mcp 기본값을 따른다.
+        self._read_timeout = timedelta(seconds=read_timeout) if read_timeout else None
 
     async def __aenter__(self):
         await self.connect()
@@ -62,7 +65,7 @@ class WorkShieldMCPClient:
                 stdio_transport = await self._exit_stack.enter_async_context(stdio_client(server_params))
                 read_stream, write_stream = stdio_transport
                 self.session = await self._exit_stack.enter_async_context(
-                    ClientSession(read_stream, write_stream)
+                    ClientSession(read_stream, write_stream, read_timeout_seconds=self._read_timeout)
                 )
             else:
                 # 운영/프로덕션 환경: Streamable HTTP 방식으로 서버에 연결합니다.
@@ -71,7 +74,7 @@ class WorkShieldMCPClient:
                 )
                 read_stream, write_stream, _ = http_transport
                 self.session = await self._exit_stack.enter_async_context(
-                    ClientSession(read_stream, write_stream)
+                    ClientSession(read_stream, write_stream, read_timeout_seconds=self._read_timeout)
                 )
             
             # MCP 핸드셰이크 수행
@@ -198,6 +201,7 @@ class WorkShieldMCPClient:
         file_path: Optional[str] = None,
         file_content: Optional[str] = None,
         file_name: Optional[str] = None,
+        progress_callback: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """계약서 파일 전체를 검토합니다."""
         args = {"contract_type": contract_type}
@@ -209,7 +213,11 @@ class WorkShieldMCPClient:
             args["file_name"] = file_name
 
         try:
-            response = await self.session.call_tool("review_contract", args)
+            response = await self.session.call_tool(
+                "review_contract",
+                args,
+                progress_callback=progress_callback,
+            )
             return self._parse_tool_response(response)
         except McpError as e:
             return {"status": "ERROR", "message": f"MCP Call Failed: {e.error.message} (Code: {e.error.code})"}
@@ -254,6 +262,38 @@ class WorkShieldMCPClient:
         """탐지 대상 독소조항 패턴(toxic_pattern) 전체 목록을 조회합니다."""
         try:
             response = await self.session.call_tool("list_toxic_patterns")
+            return self._parse_tool_response(response)
+        except McpError as e:
+            return {"status": "ERROR", "message": f"MCP Call Failed: {e.error.message} (Code: {e.error.code})"}
+
+    async def list_toxic_pattern_details(self) -> Dict[str, Any]:
+        """독소패턴 enum → 사람이 읽는 제목 매핑용 상세 목록을 조회합니다."""
+        try:
+            response = await self.session.call_tool("list_toxic_pattern_details")
+            return self._parse_tool_response(response)
+        except McpError as e:
+            return {"status": "ERROR", "message": f"MCP Call Failed: {e.error.message} (Code: {e.error.code})"}
+
+    # =========================================================================
+    # 🤖 LLM 툴 루프용 제네릭 도구 접근
+    # =========================================================================
+
+    async def list_tool_schemas(self) -> List[Dict[str, Any]]:
+        """서버가 노출한 모든 MCP 도구를 (name, description, input_schema)로 반환 — LLM function 정의 변환용."""
+        resp = await self.session.list_tools()
+        return [
+            {
+                "name": t.name,
+                "description": t.description or "",
+                "input_schema": t.inputSchema or {"type": "object", "properties": {}},
+            }
+            for t in resp.tools
+        ]
+
+    async def invoke_tool(self, name: str, arguments: Dict[str, Any]) -> Any:
+        """이름으로 임의 MCP 도구를 호출하고 파싱된 결과를 반환 — LLM 툴 실행 루프용."""
+        try:
+            response = await self.session.call_tool(name, arguments or {})
             return self._parse_tool_response(response)
         except McpError as e:
             return {"status": "ERROR", "message": f"MCP Call Failed: {e.error.message} (Code: {e.error.code})"}

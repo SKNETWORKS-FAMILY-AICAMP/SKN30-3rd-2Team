@@ -67,3 +67,14 @@ class ListCategoriesResponse(BaseModel):
 
 class ListToxicPatternsResponse(BaseModel):
     patterns: list[str]
+
+
+class ToxicPatternDetail(BaseModel):
+    pattern: str            # ToxicPattern enum 값 (예: "IP_TOTAL_FREE")
+    title: str              # 사람이 읽는 대표 제목 (예: "저작권·지식재산권 전부 무상 귀속")
+    category: Optional[str] = None
+    example_count: int      # 이 패턴에 속한 큐레이션 예시 문구 수
+
+
+class ListToxicPatternDetailsResponse(BaseModel):
+    patterns: list[ToxicPatternDetail]

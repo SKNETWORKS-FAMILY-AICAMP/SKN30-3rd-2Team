@@ -15,7 +15,7 @@ from adapter import db, vector, embedder, reranker, kordoc, koreanLaw
 | 객체 | 클래스 | 대표 사용법 |
 | --- | --- | --- |
 | `db` | SQLite 매니저 | `db.fetch_all("SELECT * FROM standard_clauses WHERE category=?", "IP_OWNERSHIP")` |
-| `vector` | Chroma + BM25 하이브리드 | `vector.search("standard_clauses", query, search_type="hybrid", top_k=5)` |
+| `vector` | Chroma + BM25 하이브리드 | `vector.hybrid_search("standard_clauses", embedder.embed_query(query), query, top_k=5)` |
 | `embedder` | bge-m3 임베딩 | `embedder.embed_query("제20조...")`, `embedder.embed_documents([...])` |
 | `reranker` | bge-reranker-v2-m3 | `reranker.rerank(query, results, top_k=3)` |
 | `kordoc` | 문서 변환 MCP | `kordoc.parse_to_text("a.hwp")`, `kordoc.parse_to_markdown(src, out)` |

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ' *)",
+      "Bash(PYTHONPATH=src uv run python -c ' *)",
+      "Bash(PYTHONPATH=src MCP_TRANSPORT=stdio uv run python -c ' *)"
+    ]
+  }
+}

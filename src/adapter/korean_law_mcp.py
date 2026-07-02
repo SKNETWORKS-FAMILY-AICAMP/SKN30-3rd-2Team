@@ -14,9 +14,9 @@ class KoreanLawMCPClient:
 
     async def _call_mcp_tool(self, tool_name: str, arguments: Dict[str, Any]) -> str:
         """비동기로 korean-law MCP 서버를 실행하여 특정 도구(Tool)를 호출합니다."""
-        # 전역 설치된 'korean-law' 명령어를 활용하여 MCP stdio 연결을 확립합니다.
+        # 전역 설치된 'korean-law-mcp' 명령어를 활용하여 MCP stdio 연결을 확립합니다.
         server_params = StdioServerParameters(
-            command="korean-law",
+            command="korean-law-mcp",
             args=[]
         )
 
