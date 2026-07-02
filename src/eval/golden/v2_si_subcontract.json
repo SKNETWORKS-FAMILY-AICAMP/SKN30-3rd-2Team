@@ -1,0 +1,252 @@
+[
+  {
+    "case_id": "g01",
+    "contract_type": "SI_SUBCONTRACT",
+    "user_clause": "계약 체결 직후 상용소프트웨어 개발에 요구되는 제반 자료를 원사업자가 수급사업자에게 서면 형태로 전달하여야 한다.",
+    "gold_clause_id": "si_subcontract-2025-art5",
+    "gold_deviation": "NONE",
+    "gold_toxic": [],
+    "trap": "paraphrase",
+    "note": "정보제공 의무의 단순 말바꿈 정상 케이스"
+  },
+  {
+    "case_id": "g02",
+    "contract_type": "SI_SUBCONTRACT",
+    "user_clause": "원사업자는 계약 체결 후 지체 없이 상용소프트웨어의 개발 등에 필요한 정보를 수급사업자에게 서면으로 제공하지 아니할 수 있다.",
+    "gold_clause_id": "si_subcontract-2025-art5",
+    "gold_deviation": "CHANGED",
+    "gold_toxic": [],
+    "trap": "negation",
+    "note": "정보제공 의무를 부정어 하나로 배제한 이탈 케이스"
+  },
+  {
+    "case_id": "g03",
+    "contract_type": "SI_SUBCONTRACT",
+    "user_clause": "원사업자가 서면을 교부하지 않거나 제공하지 않은 정보로 인해 발생한 원사업자의 모든 손해에 대해 사유 불문하고 수급사업자가 책임을 진다.",
+    "gold_clause_id": "si_subcontract-2025-art5",
+    "gold_deviation": "CHANGED",
+    "gold_toxic": ["liability_transfer"],
+    "trap": "party",
+    "note": "원사업자의 귀책사유로 인한 손해 책임을 수급사업자에게 떠넘김"
+  },
+  {
+    "case_id": "g04",
+    "contract_type": "SI_SUBCONTRACT",
+    "user_clause": "수급사업자는 원사업자로부터 제공받은 문서를 본 하도급 계약 목적에만 사용하여야 하며, 타인에게 절대 유출해서는 안 된다.",
+    "gold_clause_id": "si_subcontract-2025-art5",
+    "gold_deviation": "NONE",
+    "gold_toxic": [],
+    "trap": "paraphrase",
+    "note": "목적 외 사용 금지의 의미를 유지한 말바꿈"
+  },
+  {
+    "case_id": "g05",
+    "contract_type": "SI_SUBCONTRACT",
+    "user_clause": "수급사업자는 필요 시 원사업자로부터 제공받은 영업비밀을 제3자에게 임의로 매각하거나 양도할 수 있다.",
+    "gold_clause_id": null,
+    "gold_deviation": "EXTRA",
+    "gold_toxic": [],
+    "trap": "none",
+    "note": "표준에 없는 영업비밀 임의 양도 가능 추가 조항"
+  },
+  {
+    "case_id": "g06",
+    "contract_type": "SI_SUBCONTRACT",
+    "user_clause": "원사업자는 상용소프트웨어 개발 업무를 진행함에 있어 안전사고가 나지 않도록 철저히 관리하고 감독할 책임이 있다.",
+    "gold_clause_id": "si_subcontract-2025-art14",
+    "gold_deviation": "NONE",
+    "gold_toxic": [],
+    "trap": "paraphrase",
+    "note": "안전조치 의무의 의미 유지 말바꿈"
+  },
+  {
+    "case_id": "g07",
+    "contract_type": "SI_SUBCONTRACT",
+    "user_clause": "수급사업자의 상용소프트웨어 개발 등의 업무 수행으로 인하여 발생하는 모든 안전사고에 대한 관리 및 감독 책임은 전적으로 수급사업자가 진다.",
+    "gold_clause_id": "si_subcontract-2025-art14",
+    "gold_deviation": "CHANGED",
+    "gold_toxic": ["liability_transfer"],
+    "trap": "party",
+    "note": "원사업자의 관리감독 의무를 수급사업자에게 전가"
+  },
+  {
+    "case_id": "g08",
+    "contract_type": "SI_SUBCONTRACT",
+    "user_clause": "원사업자는 수급사업자의 근로자가 피로를 풀 수 있도록 휴식시간에 이용할 수 있는 휴게시설을 갖추지 아니할 수 있다.",
+    "gold_clause_id": "si_subcontract-2025-art14",
+    "gold_deviation": "CHANGED",
+    "gold_toxic": [],
+    "trap": "negation",
+    "note": "휴게시설 제공 의무를 부정어로 배제"
+  },
+  {
+    "case_id": "g09",
+    "contract_type": "SI_SUBCONTRACT",
+    "user_clause": "하도급받은 작업과 관련해 산업안전보건법 위반 소지가 있을 경우 원사업자는 수급사업자에게 시정을 요구할 수 있고, 특별한 이유가 없다면 수급사업자는 이에 따라야 한다.",
+    "gold_clause_id": "si_subcontract-2025-art14",
+    "gold_deviation": "NONE",
+    "gold_toxic": [],
+    "trap": "paraphrase",
+    "note": "시정 요구에 대한 정상 말바꿈 조항"
+  },
+  {
+    "case_id": "g10",
+    "contract_type": "SI_SUBCONTRACT",
+    "user_clause": "원사업자의 사업장에 설치되는 모든 안전 및 보건 시설의 초기 설치 비용과 유지보수 비용은 수급사업자가 100% 부담한다.",
+    "gold_clause_id": null,
+    "gold_deviation": "EXTRA",
+    "gold_toxic": ["unfair_expense"],
+    "trap": "party",
+    "note": "표준에 없는 부당한 비용 전가 독소 조항"
+  },
+  {
+    "case_id": "g11",
+    "contract_type": "SI_SUBCONTRACT",
+    "user_clause": "상용소프트웨어 개발 완료를 통보받은 원사업자는 10일 내에 서면으로 검사 결과를 통보해야 하며, 기한을 넘기면 검사를 통과한 것으로 간주한다.",
+    "gold_clause_id": "si_subcontract-2025-art22",
+    "gold_deviation": "NONE",
+    "gold_toxic": [],
+    "trap": "paraphrase",
+    "note": "10일 검사 기한 정상 말바꿈 조항"
+  },
+  {
+    "case_id": "g12",
+    "contract_type": "SI_SUBCONTRACT",
+    "user_clause": "원사업자는 상용소프트웨어 개발 등의 완료를 통지받은 날부터 30일 이내에 검사결과를 수급사업자에게 서면으로 통지한다.",
+    "gold_clause_id": "si_subcontract-2025-art22",
+    "gold_deviation": "CHANGED",
+    "gold_toxic": [],
+    "trap": "number",
+    "note": "검사 기한을 10일에서 30일로 연장한 숫자 트랩"
+  },
+  {
+    "case_id": "g13",
+    "contract_type": "SI_SUBCONTRACT",
+    "user_clause": "정당한 사유가 있는 경우를 제외하고, 수급사업자는 불합격 통지서를 받은 날부터 3일 이내에만 서면으로 이의를 신청할 수 있다.",
+    "gold_clause_id": "si_subcontract-2025-art22",
+    "gold_deviation": "CHANGED",
+    "gold_toxic": [],
+    "trap": "number",
+    "note": "이의신청 기한을 10일에서 3일로 대폭 축소한 트랩"
+  },
+  {
+    "case_id": "g14",
+    "contract_type": "SI_SUBCONTRACT",
+    "user_clause": "원사업자가 10일 이내에 검사결과를 통지하지 않은 경우에도 수급사업자가 명시적인 합격증명서를 받기 전까지는 검사에 합격한 것으로 보지 아니한다.",
+    "gold_clause_id": "si_subcontract-2025-art22",
+    "gold_deviation": "CHANGED",
+    "gold_toxic": ["unfair_condition"],
+    "trap": "negation",
+    "note": "검사 간주 규정을 부정어와 추가 조건으로 무효화"
+  },
+  {
+    "case_id": "g15",
+    "contract_type": "SI_SUBCONTRACT",
+    "user_clause": "원사업자는 검사를 진행하는 동안 제공받은 상용소프트웨어 목적물에 대하여 선량한 관리자로서의 주의 의무를 다하여 관리해야 한다.",
+    "gold_clause_id": "si_subcontract-2025-art22",
+    "gold_deviation": "NONE",
+    "gold_toxic": [],
+    "trap": "paraphrase",
+    "note": "선관주의 의무 정상 말바꿈"
+  },
+  {
+    "case_id": "g16",
+    "contract_type": "SI_SUBCONTRACT",
+    "user_clause": "원사업자는 정당한 사유가 명백하게 입증된 경우를 제외하고는 약정된 하도급대금을 임의로 깎을 수 없다.",
+    "gold_clause_id": "si_subcontract-2025-art30",
+    "gold_deviation": "NONE",
+    "gold_toxic": [],
+    "trap": "paraphrase",
+    "note": "감액금지 원칙 정상 말바꿈"
+  },
+  {
+    "case_id": "g17",
+    "contract_type": "SI_SUBCONTRACT",
+    "user_clause": "원사업자의 경영적자, 판매가격 하락 등 내부 경제상황 변동이 발생할 경우, 원사업자는 합리적 범위 내에서 하도급대금을 일방적으로 감액할 수 있다.",
+    "gold_clause_id": "si_subcontract-2025-art30",
+    "gold_deviation": "CHANGED",
+    "gold_toxic": ["unfair_deduction"],
+    "trap": "contradiction",
+    "note": "경영적자 사유를 정당한 감액 사유로 뒤집은 독소 조항"
+  },
+  {
+    "case_id": "g18",
+    "contract_type": "SI_SUBCONTRACT",
+    "user_clause": "원사업자가 지급해야 할 금액을 인수일로부터 90일이 지난 후에 지급하는 경우에 한하여 공정거래위원회가 고시한 지연배상금을 지급한다.",
+    "gold_clause_id": "si_subcontract-2025-art30",
+    "gold_deviation": "CHANGED",
+    "gold_toxic": [],
+    "trap": "number",
+    "note": "지연이자 발생 기점을 60일에서 90일로 불리하게 변경"
+  },
+  {
+    "case_id": "g19",
+    "contract_type": "SI_SUBCONTRACT",
+    "user_clause": "정당한 이유 없이 대금을 깎은 경우, 원사업자는 즉시 그 깎은 금액만큼을 수급사업자에게 되돌려 주어야 한다.",
+    "gold_clause_id": "si_subcontract-2025-art30",
+    "gold_deviation": "NONE",
+    "gold_toxic": [],
+    "trap": "paraphrase",
+    "note": "부당 감액 금액 반환 의무 정상 말바꿈"
+  },
+  {
+    "case_id": "g20",
+    "contract_type": "SI_SUBCONTRACT",
+    "user_clause": "수급사업자는 원사업자의 하도급대금 감액 통지에 대하여 어떠한 경우에도 민형사상 이의를 제기할 수 없으며, 감액된 금액에 무조건 동의한다.",
+    "gold_clause_id": null,
+    "gold_deviation": "EXTRA",
+    "gold_toxic": ["lawsuit_waiver"],
+    "trap": "party",
+    "note": "대금 감액에 대한 소제기 포기 특약 추가"
+  },
+  {
+    "case_id": "g21",
+    "contract_type": "SI_SUBCONTRACT",
+    "user_clause": "약정된 기한 내에 소프트웨어 개발이 완료되지 못한 경우, 원사업자는 연체된 일수에 요율을 곱하여 지체상금을 청구할 수 있다.",
+    "gold_clause_id": "si_subcontract-2025-art49",
+    "gold_deviation": "NONE",
+    "gold_toxic": [],
+    "trap": "paraphrase",
+    "note": "지체상금 청구 정상 말바꿈"
+  },
+  {
+    "case_id": "g22",
+    "contract_type": "SI_SUBCONTRACT",
+    "user_clause": "수급사업자의 책임 없는 사유이거나 원사업자가 원부자재 공급을 지연한 경우라도 일단 개발이 늦어지면 지체일수에 산입하여 지체상금을 물어야 한다.",
+    "gold_clause_id": "si_subcontract-2025-art49",
+    "gold_deviation": "CHANGED",
+    "gold_toxic": ["liability_transfer"],
+    "trap": "contradiction",
+    "note": "원사업자 귀책이나 불가항력의 경우도 지체일수에 포함시키는 트랩"
+  },
+  {
+    "case_id": "g23",
+    "contract_type": "SI_SUBCONTRACT",
+    "user_clause": "원사업자는 부과된 지체상금을 수급사업자에게 지급할 하도급 대금 잔액에서 우선적으로 공제할 권리를 가진다.",
+    "gold_clause_id": "si_subcontract-2025-art49",
+    "gold_deviation": "NONE",
+    "gold_toxic": [],
+    "trap": "paraphrase",
+    "note": "대금 공제 권리 정상 말바꿈"
+  },
+  {
+    "case_id": "g24",
+    "contract_type": "SI_SUBCONTRACT",
+    "user_clause": "원사업자의 파산 등 정당한 사유가 있더라도 계약기간 중에 수급사업자의 핵심 개발자를 원사업자가 임의로 빼가서 채용해서는 안 된다.",
+    "gold_clause_id": "si_subcontract-2025-art44",
+    "gold_deviation": "NONE",
+    "gold_toxic": [],
+    "trap": "paraphrase",
+    "note": "제44조 채용 제한 정상 말바꿈"
+  },
+  {
+    "case_id": "g25",
+    "contract_type": "SI_SUBCONTRACT",
+    "user_clause": "지체상금 부과 사유가 발생할 경우, 원사업자는 명시된 지체상금 외에도 징벌적 배상금 명목으로 계약 금액의 10%를 별도로 추가 청구할 수 있다.",
+    "gold_clause_id": null,
+    "gold_deviation": "EXTRA",
+    "gold_toxic": ["unfair_penalty"],
+    "trap": "none",
+    "note": "표준에 없는 징벌적 배상금 독소 조항 추가"
+  }
+]
