@@ -10,8 +10,8 @@ from mcp.server.fastmcp import FastMCP
 from config import BASE_DIR
 from contracts.enums import ContractType, Category, Deviation, ToxicPattern
 from contracts.models import StandardClause, StandardSubChunk
-from contracts.implement import KordocParser, KoreanLawGrounder
 from adapter import vector, db, reranker
+from server.deps import get_parser, get_grounder
 from core import classify_clause_deviation, select_best_match, sigmoid
 from pipe.review_pipe import review_contract as review_contract_pipe
 from pipe.exceptions import EmptyDocumentError, CorpusUnavailableError, InvalidConfigError, PipelineIntegrityError
@@ -66,10 +66,6 @@ def _resolve_contract_file(
 
 mcp = FastMCP("WorkShield")
 
-# 싱글턴 어댑터
-_parser = KordocParser()
-_grounder = KoreanLawGrounder()
-
 
 @mcp.tool()
 def parse_contract(
@@ -105,7 +101,7 @@ def parse_contract(
     resolved_path, temp_path = _resolve_contract_file(file_path, file_content, file_name)
     try:
         # FileNotFoundError · RuntimeError(kordoc 변환 실패) → 그대로 raise → FastMCP error 응답
-        clauses = _parser.parse(resolved_path)
+        clauses = get_parser().parse(resolved_path)
     finally:
         if temp_path is not None:
             temp_path.unlink(missing_ok=True)
@@ -248,7 +244,7 @@ def get_grounding(
         )
 
     if clause_text is not None:
-        grounding = _grounder.query_law(clause_text)
+        grounding = get_grounder().query_law(clause_text)
     else:
         try:
             ct = Category(category)
@@ -257,7 +253,7 @@ def get_grounding(
                 f"지원하지 않는 카테고리: '{category}'. "
                 f"가능한 값: {[e.value for e in Category]}"
             )
-        grounding = _grounder.get_grounding(ct)
+        grounding = get_grounder().get_grounding(ct)
 
     if not grounding:
         return GetGroundingResponse(
@@ -304,7 +300,7 @@ def review_contract(
     resolved_path, temp_path = _resolve_contract_file(file_path, file_content, file_name)
     try:
         # FileNotFoundError · RuntimeError(kordoc 실패) → 그대로 raise → FastMCP error 응답
-        clauses = _parser.parse(resolved_path)
+        clauses = get_parser().parse(resolved_path)
     finally:
         if temp_path is not None:
             temp_path.unlink(missing_ok=True)
@@ -331,7 +327,7 @@ def review_contract(
             contract_type=ct,
             retriever=vector,
             reranker=reranker,
-            grounder=_grounder,
+            grounder=get_grounder(),
             all_standard_clauses=standards,
             all_standard_sub_chunks=_load_sub_chunks(ct),
         )
@@ -454,7 +450,7 @@ def classify_clause(
 
     grounding = []
     if matched is not None and deviation == Deviation.CHANGED and matched.category != Category.GENERAL:
-        grounding = _grounder.get_grounding(matched.category)
+        grounding = get_grounder().get_grounding(matched.category)
 
     return ClassifyClauseResponse(
         status="OK",

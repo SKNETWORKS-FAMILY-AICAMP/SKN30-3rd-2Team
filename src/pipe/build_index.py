@@ -82,7 +82,7 @@ def build_standard_index(collection_name: str = "standard_clauses") -> int:
         table_name="standard_clauses",
         collection_name=collection_name,
         id_column="clause_id",
-        metadata_columns=["clause_id", "contract_type", "category", "title"],
+        metadata_columns=["clause_id", "contract_type", "category", "title", "source", "version"],
     )
 
 

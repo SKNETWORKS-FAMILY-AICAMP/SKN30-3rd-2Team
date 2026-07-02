@@ -1,10 +1,11 @@
 import logging
-import asyncio
 import os
 from typing import List, Dict, Any, Optional
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+
+from adapter.async_bridge import run_coroutine_blocking
 
 class KordocCLI:
     """
@@ -45,17 +46,13 @@ class KordocCLI:
                 return result.content[0].text
 
     def _run_mcp_sync(self, tool_name: str, arguments: Dict[str, Any]) -> str:
-        """비동기 MCP 호출 함수를 동기식 컨텍스트로 실행할 수 있게 래핑합니다."""
+        """비동기 MCP 호출 함수를 동기식 컨텍스트로 실행할 수 있게 래핑합니다.
+
+        FastMCP 서버의 이벤트 루프를 블로킹하지 않도록, 실행 중인 루프가 있으면 별도
+        스레드의 새 루프에서 실행한다(async_bridge 참고 — 데드락 방지).
+        """
         try:
-            try:
-                loop = asyncio.get_running_loop()
-                # 이미 실행 중인 이벤트 루프가 있을 때 (예: FastMCP 서버 내부 등)
-                return asyncio.run_coroutine_threadsafe(
-                    self._call_mcp_tool(tool_name, arguments), loop
-                ).result()
-            except RuntimeError:
-                # 실행 중인 이벤트 루프가 없는 일반 스레드인 경우
-                return asyncio.run(self._call_mcp_tool(tool_name, arguments))
+            return run_coroutine_blocking(self._call_mcp_tool(tool_name, arguments))
         except Exception as e:
             logging.error(f"[Error] kordoc MCP 툴 '{tool_name}' 호출 실패: {e}")
             raise RuntimeError(f"kordoc MCP 연동 오류: {e}") from e
