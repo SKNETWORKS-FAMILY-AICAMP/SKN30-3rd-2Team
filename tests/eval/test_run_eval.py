@@ -32,3 +32,43 @@ def test_evaluate_빈_케이스():
     from eval.run_eval import evaluate
     report = evaluate([], k=5)
     assert report["n"] == 0
+
+
+# --- 축퇴 경보 (v1 리뷰 §1 사후 조치: recall 1.0 / 특이도 0 오독을 지표 차원에서 차단) ---
+def _scores(tp, fp, fn, tn):
+    return {"tp": tp, "fp": fp, "fn": fn, "tn": tn}
+
+
+def test_degeneracy_alerts_전부_양성이면_경보():
+    from eval.run_eval import degeneracy_alerts
+    assert degeneracy_alerts(_scores(tp=5, fp=4, fn=0, tn=0), "이탈") != []
+
+
+def test_degeneracy_alerts_전부_음성이면_경보():
+    from eval.run_eval import degeneracy_alerts
+    assert degeneracy_alerts(_scores(tp=0, fp=0, fn=3, tn=4), "독소") != []
+
+
+def test_degeneracy_alerts_정상_분포면_경보_없음():
+    from eval.run_eval import degeneracy_alerts
+    assert degeneracy_alerts(_scores(tp=3, fp=1, fn=1, tn=4), "이탈") == []
+
+
+def test_degeneracy_alerts_빈_집계는_경보_없음():
+    from eval.run_eval import degeneracy_alerts
+    assert degeneracy_alerts(_scores(tp=0, fp=0, fn=0, tn=0), "이탈") == []
+
+
+def test_coverage_degeneracy_단일_클래스면_경보():
+    from eval.run_eval import coverage_degeneracy_alert
+    assert coverage_degeneracy_alert({"CHANGED": 10}) is not None
+
+
+def test_coverage_degeneracy_혼합_분포면_경보_없음():
+    from eval.run_eval import coverage_degeneracy_alert
+    assert coverage_degeneracy_alert({"CHANGED": 6, "NONE": 4}) is None
+
+
+def test_coverage_degeneracy_표본_너무_작으면_판단_보류():
+    from eval.run_eval import coverage_degeneracy_alert
+    assert coverage_degeneracy_alert({"CHANGED": 2}) is None

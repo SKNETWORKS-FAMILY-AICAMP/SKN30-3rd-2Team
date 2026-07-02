@@ -175,7 +175,8 @@ def review_contract(
                               MISSING 탐지 및 조항 코퍼스 조회에 사용합니다.
         graph: 연관위험 조항 탐색 포트. None 이면 연관위험 생략 (선택).
         match_threshold: 대응 표준조항으로 인정할 최소 정규화 점수(0~1, rerank_score→sigmoid).
-        change_threshold: 매칭된 조항이 '충분히 같다'고 볼 본문 일치율(SequenceMatcher 기준).
+        change_threshold: 매칭된 조항이 '충분히 같다'고 볼 본문 일치율
+                          (항↔항 정렬 SequenceMatcher 기준 — core.calculate_text_similarity).
         toxic_threshold: 독소 패턴으로 인정할 최소 정규화 점수(0~1, rerank_score→sigmoid).
                          **0.5 는 sigmoid 바닥값과 겹쳐 무신호 후보까지 전부 통과하므로 금지.**
                          v1 골든 점수 분포상 0.6 이 특이도 0→0.86 로 축퇴를 해소하는 시작값이며,

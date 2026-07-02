@@ -92,7 +92,7 @@ flowchart LR
 | 조항 분해(청킹) | LlamaIndex `MarkdownNodeParser` |
 | 저장소 | SQLite (조항·관계·독소패턴) |
 | 법령 근거 | korean-law-mcp (외부 MCP) |
-| 문서 변환 | kordoc (HWP/PDF → 마크다운) |
+| 문서 변환 | kordoc (HWP 3.x/5.x, HWPX, HWPML, PDF, XLS, XLSX, DOCX  → 마크다운) |
 | 인터페이스 | MCP (`mcp[cli]` / FastMCP) |
 | 검증 · 도구 | pydantic · uv · just · pytest |
 

@@ -31,9 +31,9 @@
     "contract_type": "SM_SUBCONTRACT",
     "user_clause": "수급사업자는 계약기간 개시 전까지 해킹 등을 방지하기 위한 보안체계를 수립하고 그 내용을 원사업자에게 보고한다.",
     "gold_clause_id": "sm_subcontract-2022-art6",
-    "gold_deviation": "NONE",
+    "gold_deviation": "CHANGED",
     "trap": "paraphrase",
-    "note": "제6조 보안체계 수립 및 보고 조항의 정상 매칭 케이스"
+    "note": "제6조 보안체계 수립 및 보고 조항의 정상 매칭 케이스 [엄격안 재라벨: 말바꿈은 CHANGED — v1_review.md §6]"
   },
   {
     "case_id": "g05",
@@ -86,9 +86,9 @@
     "contract_type": "SM_SUBCONTRACT",
     "user_clause": "수급사업자는 원사업자의 유지ㆍ관리 점검 요구에 성실히 응하되, 정당한 사유로 원사업자가 요구한 시기에 응할 수 없는 경우 그 시기를 달리 정할 수 있다.",
     "gold_clause_id": "sm_subcontract-2022-art10",
-    "gold_deviation": "NONE",
+    "gold_deviation": "CHANGED",
     "trap": "paraphrase",
-    "note": "제10조 유지ㆍ관리 점검 조항의 정상 매칭 케이스"
+    "note": "제10조 유지ㆍ관리 점검 조항의 정상 매칭 케이스 [엄격안 재라벨: 말바꿈은 CHANGED — v1_review.md §6]"
   },
   {
     "case_id": "g11",
@@ -142,9 +142,9 @@
     "contract_type": "SM_SUBCONTRACT",
     "user_clause": "원사업자가 선급금, 기성금 또는 추가작업대금을 지급하지 않는 경우 수급사업자는 상당한 기간을 정해 지급을 독촉한 후 유지ㆍ관리의 전부 또는 일부를 일시 중지할 수 있다.",
     "gold_clause_id": "sm_subcontract-2022-art18",
-    "gold_deviation": "NONE",
+    "gold_deviation": "CHANGED",
     "trap": "paraphrase",
-    "note": "제18조 대금 미지급 시 유지ㆍ관리 중지권의 정상 매칭 케이스"
+    "note": "제18조 대금 미지급 시 유지ㆍ관리 중지권의 정상 매칭 케이스 [엄격안 재라벨: 말바꿈은 CHANGED — v1_review.md §6]"
   },
   {
     "case_id": "g17",
@@ -179,9 +179,9 @@
     "contract_type": "SM_SUBCONTRACT",
     "user_clause": "원사업자는 수급사업자의 유지ㆍ관리 업무 수행으로 안전사고가 발생하지 않도록 관리ㆍ감독하고, 필요한 안전조치 및 보건조치를 한다.",
     "gold_clause_id": "sm_subcontract-2022-art20",
-    "gold_deviation": "NONE",
+    "gold_deviation": "CHANGED",
     "trap": "paraphrase",
-    "note": "제20조 원사업자의 안전조치 의무 정상 매칭 케이스"
+    "note": "제20조 원사업자의 안전조치 의무 정상 매칭 케이스 [엄격안 재라벨: 말바꿈은 CHANGED — v1_review.md §6]"
   },
   {
     "case_id": "g21",
@@ -244,9 +244,9 @@
     "contract_type": "SM_SUBCONTRACT",
     "user_clause": "수급사업자는 공급원가 변동 등으로 하도급대금 조정이 불가피한 경우 원사업자에게 하도급대금의 조정을 신청할 수 있다.",
     "gold_clause_id": "sm_subcontract-2022-art38",
-    "gold_deviation": "NONE",
+    "gold_deviation": "CHANGED",
     "trap": "paraphrase",
-    "note": "제38조 공급원가 변동에 따른 하도급대금 조정 신청의 정상 매칭 케이스"
+    "note": "제38조 공급원가 변동에 따른 하도급대금 조정 신청의 정상 매칭 케이스 [엄격안 재라벨: 말바꿈은 CHANGED — v1_review.md §6]"
   },
   {
     "case_id": "g28",
@@ -281,9 +281,9 @@
     "contract_type": "SM_SUBCONTRACT",
     "user_clause": "원사업자는 수급사업자 또는 조합의 하도급대금 조정신청 등을 이유로 수주기회를 제한하거나 거래정지 등 불이익을 주지 아니한다.",
     "gold_clause_id": "sm_subcontract-2022-art49",
-    "gold_deviation": "NONE",
+    "gold_deviation": "CHANGED",
     "trap": "paraphrase",
-    "note": "제49조 보복조치 금지의 정상 매칭 케이스"
+    "note": "제49조 보복조치 금지의 정상 매칭 케이스 [엄격안 재라벨: 말바꿈은 CHANGED — v1_review.md §6]"
   },
   {
     "case_id": "g32",
@@ -411,9 +411,9 @@
     "contract_type": "SM_SUBCONTRACT",
     "user_clause": "검사를 마친 날부터 하자담보책임기간 동안 수급사업자의 유지ㆍ관리 등으로 발생한 하자에 대해 원사업자는 상당한 기간을 정하여 보수를 청구할 수 있다.",
     "gold_clause_id": "sm_subcontract-2022-art57",
-    "gold_deviation": "NONE",
+    "gold_deviation": "CHANGED",
     "trap": "paraphrase",
-    "note": "제57조 하자담보책임의 정상 매칭 케이스"
+    "note": "제57조 하자담보책임의 정상 매칭 케이스 [엄격안 재라벨: 말바꿈은 CHANGED — v1_review.md §6]"
   },
   {
     "case_id": "g46",

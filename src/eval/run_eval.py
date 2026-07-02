@@ -53,6 +53,47 @@ def evaluate(cases: List[Dict], k: int = 5) -> Dict:
     }
 
 
+def degeneracy_alerts(scores: Dict[str, float], label: str) -> List[str]:
+    """이진 분류 집계에서 '전 케이스 단일 판정' 축퇴를 감지합니다 (v1 리뷰 §1 사후 조치).
+
+    v1 에서 recall=1.0 이 "완벽"이 아니라 전 조항을 양성으로 찍은 축퇴였음이 특이도=0 으로야
+    드러났습니다. 같은 오독이 재발하지 않도록, 예측이 한 클래스로 쏠리면 지표 옆에 경보를 답니다.
+    scores: metrics.binary_scores 반환값 (tp/fp/fn/tn 포함). 반환: 경보 문구 목록(정상이면 빈 목록).
+    """
+    n = scores["tp"] + scores["fp"] + scores["fn"] + scores["tn"]
+    if not n:
+        return []
+    positive_predictions = scores["tp"] + scores["fp"]
+    if positive_predictions == n:
+        return [
+            f"⚠️ 축퇴 의심({label}): 검토된 전 케이스({n:.0f}건)를 양성으로 판정 — "
+            "recall 1.0 은 성능이 아니라 '다 찍음'일 수 있음 (특이도 확인)"
+        ]
+    if positive_predictions == 0:
+        return [
+            f"⚠️ 축퇴 의심({label}): 검토된 전 케이스({n:.0f}건)를 음성으로 판정 — "
+            "임계값이 지나치게 높거나 분류기가 무신호일 수 있음"
+        ]
+    return []
+
+
+# 트랙 B 는 문서당 조항이 적으므로, 이 수 미만이면 단일 클래스여도 축퇴로 단정하지 않는다
+_COVERAGE_DEGENERACY_MIN_N = 3
+
+
+def coverage_degeneracy_alert(deviation_dist: Dict[str, int]) -> str | None:
+    """트랙 B(라벨 없음)용 축퇴 감지: 문서의 deviation 분포가 단일 클래스로 쏠렸는지 봅니다.
+
+    v1 트랙 B 에서 5문서·65조항 전부 CHANGED 로 찍힌 축퇴(리뷰 §3)를 결과 md 에서 바로
+    보이게 하기 위한 표식. 표본이 _COVERAGE_DEGENERACY_MIN_N 미만이면 판단을 보류합니다.
+    """
+    n = sum(deviation_dist.values())
+    if n < _COVERAGE_DEGENERACY_MIN_N or len(deviation_dist) != 1:
+        return None
+    only = next(iter(deviation_dist))
+    return f"⚠️ 축퇴 의심: 전 조항({n}건)이 단일 분류({only}) — 분류기가 신호를 못 내고 있을 수 있음"
+
+
 # ─────────────────────────────────────────────────────────────────────────
 # Driver (트랙 A) — 아래부터는 외부 인덱스(Chroma)·모델에 의존하는 통합 코드입니다.
 # `just build-db` 로 인덱스가 준비된 뒤에만 동작하며, 단위테스트 대상이 아닙니다.
@@ -276,6 +317,7 @@ def _write_result_md(
     by_type: Dict[str, Dict[str, Any]],
     k: int,
     golden_dir: str = GOLDEN_DIR,
+    alerts: List[str] | None = None,
 ) -> str:
     """버전 전체 평가 결과를 **단일** `{version}_result.md` 로 저장하고 경로를 반환한다.
 
@@ -321,6 +363,10 @@ def _write_result_md(
                 f"{s['tp']:.0f} | {s['fp']:.0f} | {s['fn']:.0f} | {s['tn']:.0f} |"
             )
             head = " | "  # 같은 유형의 둘째 행은 유형·n 칸 비움
+    if alerts:
+        lines += ["", "## ⚠️ 축퇴 경보", ""]
+        lines += [f"- {a}" for a in alerts]
+
     lines += [
         "",
         "> 해석 주의: `특이도=0`(TN=0)은 정상·무해 케이스를 전부 양성으로 찍는 축퇴를 뜻한다. "
@@ -347,6 +393,7 @@ def _run_track_a(k: int = 5, version: str | None = None) -> None:
 
     combined: Dict[str, List[Dict]] = {v: [] for v in SEARCH_VARIANTS}
     metrics_by_type: Dict[str, Dict[str, Any]] = {}
+    alerts: List[str] = []
     for contract_type, cases in by_type.items():
         cbv = build_cases_by_variant(cases, k, contract_type)
         for variant, c in cbv.items():
@@ -358,6 +405,13 @@ def _run_track_a(k: int = 5, version: str | None = None) -> None:
         metrics_by_type[contract_type] = {
             "n": len(cases), "reviewed": len(review_results), "dev": dev, "tox": tox,
         }
+        type_alerts = (
+            degeneracy_alerts(dev, f"{contract_type} 이탈")
+            + degeneracy_alerts(tox, f"{contract_type} 독소")
+        )
+        for a in type_alerts:
+            logger.warning(f"    {a}")
+        alerts.extend(type_alerts)
 
         logger.info(f"── [{contract_type}] n={len(cases)} (검토됨={len(review_results)}) ──")
         logger.info(
@@ -378,130 +432,194 @@ def _run_track_a(k: int = 5, version: str | None = None) -> None:
         r = overall[variant]
         logger.info(f"    {variant:15s} recall@{k}={r['recall@k']:.3f}  mrr={r['mrr']:.3f}  n={r['n']}")
 
-    out = _write_result_md(version, len(golden), overall, metrics_by_type, k)
+    out = _write_result_md(version, len(golden), overall, metrics_by_type, k, alerts=alerts)
     logger.info(f"=== 결과 저장: {out} ===")
 
 
 # ─────────────────────────────────────────────────────────────────────────
-# Track B (실계약 문서 단위) — MISSING Recall + 강건성. 상세 규격: docs/tasks/D_eval.md §트랙 B
-# 합성 조항(트랙 A)과 달리 문서 1건을 KordocParser 로 실제 파싱해 server.py 와 동일 경로로 검토한다.
+# Track B (실계약 문서 단위) — M:N 커버리지 + 강건성. 상세 규격: docs/tasks/D_eval.md §트랙 B
+# 라벨 없이: raw/ 의 각 실계약 문서를 coverage_types(SW·SI·SM) 각 표준코퍼스와 M:N 으로 대조해
+# 표준 커버리지·NO_MATCH·deviation 분포를 셀마다 계산한다(문서는 유형별 재파싱 없이 1회 파싱·재사용).
+# 절대값은 정답이 아니라 'vN(=시스템 버전) 비교 신호'다 — 검증된 MISSING Recall 은 스코프에서 제외.
 # ─────────────────────────────────────────────────────────────────────────
 
 GOLDEN_B_DIR = "src/eval/golden_b"
 
 
-def _load_labels_b(version: str, golden_b_dir: str = GOLDEN_B_DIR) -> List[Dict]:
-    """`golden_b/labels/{version}_*.json` 계약 단위 정답 라벨을 로드한다."""
-    import glob
-    import json
-
-    labels: List[Dict] = []
-    for path in sorted(glob.glob(f"{golden_b_dir}/labels/{version}_*.json")):
-        with open(path, encoding="utf-8") as f:
-            labels.append(json.load(f))
-    return labels
-
-
-def review_document_b(doc_path: str, contract_type: str, golden_b_dir: str = GOLDEN_B_DIR) -> List[Any]:
-    """실계약 문서 1건을 server.py 와 **동일 경로**(KordocParser.parse → review_contract)로 검토한다.
-
-    Track B 스코프상 '지름길 없이 실제 파싱까지' 검증하므로 원본(HWP/PDF)을 직접 파싱한다.
-    법령 근거(grounder)는 MISSING·deviation 판정과 무관하므로 NullGrounder 로 대체(네트워크 생략).
-    doc_path 는 라벨의 상대경로(golden_b 기준) 또는 절대경로.
-    """
+def _coverage_types_default() -> List[Any]:
+    """M:N 커버리지에서 대조할 표준 유형 집합(기본: 전체 3종). main 에서 주입해 축소 가능."""
     from contracts.enums import ContractType
+
+    return [
+        ContractType.SW_FREELANCE,
+        ContractType.SI_SUBCONTRACT,
+        ContractType.SM_SUBCONTRACT,
+    ]
+
+
+def _discover_raw_docs(golden_b_dir: str = GOLDEN_B_DIR) -> List[str]:
+    """`raw/` 의 실계약 원본을 모두 찾아 golden_b 기준 상대경로(`raw/<name>`)로 반환한다.
+
+    라벨 파일이 아니라 **파일 자체가 평가 대상**이다(유형은 코드의 coverage_types 로 지정).
+    `.gitkeep`·숨김파일은 제외.
+    """
+    import glob
+    import os
+
+    docs: List[str] = []
+    for path in sorted(glob.glob(f"{golden_b_dir}/raw/*")):
+        name = os.path.basename(path)
+        if name.startswith(".") or not os.path.isfile(path):
+            continue
+        docs.append(f"raw/{name}")
+    return docs
+
+
+def _next_version_b(golden_b_dir: str = GOLDEN_B_DIR) -> str:
+    """트랙 B 실행 버전을 자동 증가시킨다. 기존 `v<N>_b_result.md` 중 최댓값+1 (없으면 'v1').
+
+    트랙 B 의 vN 은 리랭커 모델·튜닝·임계값 등 '시스템/런 버전'이다. 그냥 돌리면 새 버전이
+    생기고, 특정 버전을 덮어쓰려면 인자로 명시한다(`run_eval b v2`). 라벨은 스캔하지 않는다
+    (라벨엔 vN 이 없으므로 — 트랙 A 의 `_detect_latest_version` 과 다른 이유).
+    """
+    import glob
+    import os
+    import re
+
+    versions = set()
+    for path in glob.glob(f"{golden_b_dir}/v*_b_result.md"):
+        m = re.match(r"v(\d+)_b_result\.md$", os.path.basename(path))
+        if m:
+            versions.add(int(m.group(1)))
+    return f"v{max(versions) + 1}" if versions else "v1"
+
+
+def _parse_document_b(doc_path: str, golden_b_dir: str = GOLDEN_B_DIR) -> List[Any]:
+    """실계약 문서 1건을 KordocParser 로 파싱해 조항 목록을 반환한다(유형 무관, 문서당 1회).
+
+    server.py 와 동일하게 원본(HWP/PDF/…)을 직접 파싱한다(지름길 없음 — 실전 파싱 강건성 검증).
+    M:N 대조에서 같은 문서를 유형 수만큼 재파싱하지 않도록, 파싱 결과를 여러 유형에 재사용한다.
+    """
     from contracts.implement import KordocParser
+
+    resolved = doc_path if Path(doc_path).is_absolute() else str(Path(golden_b_dir) / doc_path)
+    return KordocParser().parse(resolved)
+
+
+def review_document_against_type(clauses: List[Any], ct: Any) -> tuple[List[Any], int]:
+    """이미 파싱된 조항을 특정 유형 표준코퍼스와 대조한다(review_contract 전체 파이프).
+
+    반환: (검토결과 목록, 그 유형 표준조항 수). 법령 근거·독소는 커버리지 지표와 무관하므로
+    NullGrounder + use_toxic=False 로 생략(네트워크·불필요 계산 차단).
+    """
     from pipe.review_pipe import review_contract
     from adapter import vector, reranker
 
-    ct = ContractType(contract_type)
-    resolved = doc_path if Path(doc_path).is_absolute() else str(Path(golden_b_dir) / doc_path)
-    clauses = KordocParser().parse(resolved)
-    if not clauses:
-        return []
-    standards = _load_standards(contract_type)
-    return review_contract(
+    standards = _load_standards(ct.value)
+    results = review_contract(
         clauses, ct,
         retriever=vector, reranker=reranker, grounder=NullGrounder(),
-        all_standard_clauses=standards,
+        all_standard_clauses=standards, use_toxic=False,
     )
+    return results, len(standards)
 
 
-def summarize_review_b(results: List[Any]) -> Dict[str, Any]:
-    """검토 결과에서 강건성 스팟체크용 요약을 뽑는다: 조항수·deviation 분포·NO_MATCH·MISSING 후보."""
+def _coverage_cell(results: List[Any], n_standards: int) -> Dict[str, Any]:
+    """(문서 × 유형) 한 셀 지표: 표준 커버리지·NO_MATCH·deviation 분포.
+
+    coverage = 매칭된 표준 수 / 전체 표준 수 = (n_standards − MISSING) / n_standards.
+    라벨이 없으므로 MISSING 이 '진짜 누락'인지 '매칭 실패'인지는 구분하지 않는다 —
+    절대값이 아니라 유형 간·버전 간 **비교 신호**로 읽는다. 자기 유형에서 coverage 가 높고
+    NO_MATCH 가 낮게 나오는 것이 정상 기대(단, 유형 간 조항 겹침으로 분리가 흐릴 수 있음).
+    """
     from contracts.enums import Deviation
 
-    clause_results = [r for r in results if r.user_clause]  # 실제 사용자 조항 판정 (MISSING 은 user_clause="")
-    missing = [r for r in results if r.deviation == Deviation.MISSING]
+    clause_results = [r for r in results if r.user_clause]  # 사용자 조항 판정 (MISSING 은 user_clause="")
+    missing = sum(1 for r in results if r.deviation == Deviation.MISSING)
     dist: Dict[str, int] = {}
     for r in clause_results:
         dist[r.deviation.value] = dist.get(r.deviation.value, 0) + 1
+    matched_std = max(n_standards - missing, 0)
     return {
         "n_clauses": len(clause_results),
-        "deviation_dist": dist,
+        "n_standards": n_standards,
+        "matched_std": matched_std,
+        "missing": missing,
+        "coverage": matched_std / n_standards if n_standards else 0.0,
         "no_match": dist.get(Deviation.NO_MATCH.value, 0),
-        "missing_ids": [r.matched_standard.clause_id for r in missing if r.matched_standard],
+        "deviation_dist": dist,
     }
 
 
-def _dump_document_b(label: Dict, results: List[Any], summ: Dict[str, Any]) -> None:
-    """사람 확인용 덤프(MISSING 후보 컨펌 + 강건성 스팟체크)를 stdout 으로 출력한다.
-
-    라벨링은 '처음부터 쓰는' 게 아니라 **시스템 제안을 컨펌**하는 방식이므로, 확인 시
-    시스템이 제안 못 한 누락도 사람이 독립적으로 찾아 expected_missing 에 넣어야 한다(순환 편향 방어).
-    """
-    cid = label["contract_id"]
-    print(f"\n{'=' * 84}\n[{cid}] {label['contract_type']} · {label['doc_path']}\n{'=' * 84}")
-    print(f"  파싱 조항수={summ['n_clauses']}  deviation 분포={summ['deviation_dist']}  NO_MATCH={summ['no_match']}")
-    print(f"  MISSING 후보({len(summ['missing_ids'])}건) — 확인 후 expected_missing 에 반영:")
-    for mid in summ["missing_ids"]:
-        print(f"    - {mid}")
-    print(f"  현재 라벨 expected_missing = {label.get('expected_missing', [])}")
-    print("  ── 조항별 판정(강건성 스팟체크) ──")
-    for r in results:
-        if not r.user_clause:  # MISSING 은 위에서 이미 나열
-            continue
-        std = r.matched_standard.clause_id if r.matched_standard else "-"
-        print(f"    [{r.deviation.value:8}] conf={r.confidence:.2f} match={std:28} :: {r.user_clause[:48]}")
+def _dump_coverage_doc(row: Dict[str, Any]) -> None:
+    """사람 확인용 덤프(강건성 스팟체크)를 stdout 으로 출력한다: 파싱 결과 + 유형별 커버리지 셀."""
+    print(f"\n{'=' * 84}\n[{row['doc']}]  파싱 조항수={row['n_parsed']}  best-fit={row['best_fit']}\n{'=' * 84}")
+    for ct_value, c in row["cells"].items():
+        print(
+            f"  {ct_value:16} cov={c['coverage']:.2f} (표준 {c['matched_std']}/{c['n_standards']}, "
+            f"MISSING={c['missing']})  NO_MATCH={c['no_match']}  분포={c['deviation_dist']}"
+        )
 
 
-def _write_result_b_md(version: str, per_doc: List[Dict], overall: Dict, golden_b_dir: str = GOLDEN_B_DIR) -> str:
-    """Track B 결과를 `{version}_b_result.md` 로 저장(정량 MISSING Recall 표 + 사람이 채우는 강건성 섹션)."""
+def _write_coverage_b_md(
+    version: str, matrix: List[Dict], coverage_types: List[Any], golden_b_dir: str = GOLDEN_B_DIR
+) -> str:
+    """Track B 결과를 `{version}_b_result.md` 로 저장(M:N 커버리지 매트릭스 + 강건성 섹션)."""
     from datetime import datetime
 
     from config import app_env
 
+    type_values = [ct.value for ct in coverage_types]
     path = str(Path(golden_b_dir) / f"{version}_b_result.md")
     lines = [
-        f"# {version} · Track B (실계약) — 평가 결과",
+        f"# {version} · Track B (실계약) — M:N 커버리지 평가",
         "",
-        f"> 정량부 자동 생성: `eval.run_eval.evaluate_missing_recall` · "
-        f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} · `APP_ENV={app_env}` · 문서 {overall['n_docs']}건",
-        "> ⚠️ 표본이 작아 수치는 **방향 참고용**(최적화 목표 아님). 라벨이 시스템 제안 컨펌 기반이면 "
-        "recall 이 낙관 편향됨(협업 규칙 — `src/eval/README.md` 참조).",
+        f"> 자동 생성: `eval.run_eval.evaluate_coverage_b` · "
+        f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} · `APP_ENV={app_env}` · "
+        f"문서 {len(matrix)}건 × 유형 {len(coverage_types)}종",
+        "> ⚠️ 라벨 없는 자동 지표 — **절대값은 정답이 아니라 vN(=시스템 버전) 비교 신호**다. "
+        "유형 간 조항 겹침으로 커버리지가 비슷할 수 있으니 델타(vN 간)로 해석하고 최적화 목표로 삼지 말 것.",
+        "> `coverage = (전체 표준 − MISSING) / 전체 표준`. best-fit = 커버리지 최대 유형.",
         "",
-        "## MISSING Recall (문서별)",
+        "## 커버리지 매트릭스 (문서 × 유형 — 셀: `coverage (NM=NO_MATCH)`)",
         "",
-        "| contract_id | 유형 | 조항수 | NO_MATCH | MISSING 예측 | 정답 | P | R |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| 문서 | 조항수 | " + " | ".join(type_values) + " | best-fit |",
+        "| --- | --- | " + " | ".join(["---"] * len(type_values)) + " | --- |",
     ]
-    for d in per_doc:
-        lines.append(
-            f"| {d['contract_id']} | {d['contract_type']} | {d['n_clauses']} | {d['no_match']} | "
-            f"{d['n_predicted']} | {d['n_expected']} | {d['precision']:.3f} | {d['recall']:.3f} |"
+    for row in matrix:
+        if row.get("parse_error"):
+            cells_md = " | ".join(["파싱실패"] * len(type_values))
+            lines.append(f"| {row['doc']} | 0 | {cells_md} | — |")
+            continue
+        cells_md = " | ".join(
+            f"{row['cells'][tv]['coverage']:.2f} (NM={row['cells'][tv]['no_match']})" for tv in type_values
         )
+        lines.append(f"| {row['doc']} | {row['n_parsed']} | {cells_md} | {row['best_fit']} |")
+
+    lines += ["", "## 문서별 상세 (best-fit 유형 기준 deviation 분포)", ""]
+    for row in matrix:
+        if row.get("parse_error"):
+            lines.append(f"- **{row['doc']}** — ⚠️ 파싱 실패: `{row['parse_error']}`")
+            continue
+        best = row["best_fit"]
+        c = row["cells"][best]
+        degeneracy = coverage_degeneracy_alert(c["deviation_dist"])
+        lines.append(
+            f"- **{row['doc']}** (best-fit `{best}`): 조항 {c['n_clauses']} · "
+            f"coverage {c['coverage']:.2f} (표준 {c['matched_std']}/{c['n_standards']}) · "
+            f"NO_MATCH {c['no_match']} · 분포 {c['deviation_dist']}"
+            + (f" · {degeneracy}" if degeneracy else "")
+        )
+
     lines += [
-        "",
-        f"**전체(micro):** precision={overall['precision']:.3f} · recall={overall['recall']:.3f} "
-        f"(TP={overall['tp']} / 예측={overall['pred']} / 정답={overall['gold']})",
         "",
         "## 강건성 스팟체크 (사람 작성 — 정성, 지표 없음)",
         "",
-        "> `python -m eval.dump_review_b` 출력을 훑고 아래를 채운다.",
+        "> `run_eval b` 실행 시 함께 출력되는 문서 덤프를 훑고 아래를 채운다.",
         "",
         "- 파싱 성공/실패 · 깨진 조항 여부 — ",
-        "- deviation 분포 이상 여부(NO_MATCH 폭주 등) — ",
-        "- **시스템이 제안하지 못한 누락**(사람이 독립적으로 확인 — 순환 편향 방어) — ",
+        "- best-fit 이 상식과 맞는가(프리랜서 문서가 SW_FREELANCE 로?) · 유형 간 분리가 뚜렷한가 — ",
+        "- NO_MATCH 폭주·비정상 deviation 분포 여부 — ",
         "- 기타 — ",
         "",
     ]
@@ -510,82 +628,83 @@ def _write_result_b_md(version: str, per_doc: List[Dict], overall: Dict, golden_
     return path
 
 
-def evaluate_missing_recall(
-    version: str | None = None, golden_b_dir: str = GOLDEN_B_DIR,
-    write_md: bool = True, verbose_dump: bool = False,
+def evaluate_coverage_b(
+    version: str | None = None, coverage_types: List[Any] | None = None,
+    golden_b_dir: str = GOLDEN_B_DIR, write_md: bool = True, verbose_dump: bool = False,
 ) -> Dict[str, Any]:
-    """Track B 정량 지표: 문서별 MISSING id 집합 vs 라벨 `expected_missing` → `precision_recall`.
+    """Track B 자동 지표: raw/ 의 각 문서 × coverage_types 각 표준코퍼스의 M:N 커버리지.
 
-    표본이 매우 작으므로(문서 2~3건) 수치는 '목표'가 아니라 '방향 참고'다. 또한 라벨이 시스템 제안
-    컨펌 기반이면 recall 이 낙관 편향됨을 유의(협업 규칙 — README §Track B).
-    verbose_dump=True 면 문서를 한 번만 검토하면서 사람 확인용 덤프(MISSING 후보·강건성)도 함께 출력한다.
+    라벨·`expected_missing` 없이 표준 커버리지·NO_MATCH·deviation 분포를 셀마다 계산한다.
+    절대값은 정답이 아니라 **버전(vN=시스템) 비교 신호**다(문서 2~3건·유형 겹침 → 델타로 해석).
+    문서는 유형별로 재파싱하지 않도록 1회 파싱해 재사용한다. verbose_dump=True 면 유형별 셀을
+    stdout 으로도 출력(강건성 스팟체크용).
     """
-    version = version or _detect_latest_version(f"{golden_b_dir}/labels")
-    labels = _load_labels_b(version, golden_b_dir)
-    logger.info(f"=== [Track B · {version}] 라벨 로드: {len(labels)}건 ===")
-
-    per_doc: List[Dict[str, Any]] = []
-    tp = pred = gold = 0
-    for lb in labels:
-        results = review_document_b(lb["doc_path"], lb["contract_type"], golden_b_dir)
-        summ = summarize_review_b(results)
-        if verbose_dump:
-            _dump_document_b(lb, results, summ)
-        predicted = set(summ["missing_ids"])
-        expected = set(lb.get("expected_missing", []))
-        pr = metrics.precision_recall(predicted, expected)
-        tp += len(predicted & expected)
-        pred += len(predicted)
-        gold += len(expected)
-        per_doc.append({
-            "contract_id": lb["contract_id"], "contract_type": lb["contract_type"],
-            "n_clauses": summ["n_clauses"], "no_match": summ["no_match"],
-            "n_predicted": len(predicted), "n_expected": len(expected),
-            "precision": pr["precision"], "recall": pr["recall"],
-        })
-        logger.info(
-            f"  [{lb['contract_id']}] 조항={summ['n_clauses']} NO_MATCH={summ['no_match']} "
-            f"MISSING 예측={len(predicted)}/정답={len(expected)} P={pr['precision']:.3f} R={pr['recall']:.3f}"
-        )
-
-    overall = {
-        "precision": tp / pred if pred else 0.0,
-        "recall": tp / gold if gold else 0.0,
-        "tp": tp, "pred": pred, "gold": gold, "n_docs": len(labels),
-    }
-    if not labels:
-        logger.info(f"Track B 라벨이 없습니다. {golden_b_dir}/labels/{version}_*.json 을 먼저 만드세요.")
-        return {"version": version, "per_doc": [], "overall": overall, "result_md": None}
-
+    version = version or _next_version_b(golden_b_dir)
+    coverage_types = coverage_types or _coverage_types_default()
+    docs = _discover_raw_docs(golden_b_dir)
     logger.info(
-        f"── [Track B · {version}] MISSING 전체(micro) P={overall['precision']:.3f} R={overall['recall']:.3f} ──"
+        f"=== [Track B · {version}] raw 문서 {len(docs)}건 × 유형 {len(coverage_types)}종 M:N 커버리지 ==="
     )
-    out = _write_result_b_md(version, per_doc, overall, golden_b_dir) if write_md else None
+    if not docs:
+        logger.info(f"raw 문서가 없습니다. {golden_b_dir}/raw/ 에 실계약 파일을 넣으세요.")
+        return {"version": version, "matrix": [], "result_md": None}
+
+    matrix: List[Dict[str, Any]] = []
+    for doc in docs:
+        try:
+            clauses = _parse_document_b(doc, golden_b_dir)  # 유형 무관 1회 파싱
+        except Exception as e:  # 파싱 실패도 트랙 B 가 잡으려는 신호 — 조용히 죽지 않고 기록
+            logger.warning(f"  [{doc}] 파싱 실패: {e}")
+            matrix.append({"doc": doc, "parse_error": str(e), "cells": {}})
+            continue
+        if not clauses:
+            logger.warning(f"  [{doc}] 파싱 결과 조항 0건 (kordoc 미지원 포맷 가능성)")
+            matrix.append({"doc": doc, "parse_error": "조항 0건", "cells": {}})
+            continue
+
+        cells: Dict[str, Any] = {}
+        for ct in coverage_types:
+            results, n_std = review_document_against_type(clauses, ct)
+            cells[ct.value] = _coverage_cell(results, n_std)
+        best_fit = max(cells, key=lambda t: cells[t]["coverage"])
+        row = {"doc": doc, "n_parsed": len(clauses), "cells": cells, "best_fit": best_fit}
+        matrix.append(row)
+        if verbose_dump:
+            _dump_coverage_doc(row)
+        cov_str = "  ".join(f"{t}={cells[t]['coverage']:.2f}" for t in cells)
+        logger.info(f"  [{doc}] 조항={len(clauses)} best-fit={best_fit} | {cov_str}")
+
+    out = _write_coverage_b_md(version, matrix, coverage_types, golden_b_dir) if write_md else None
     if out:
         logger.info(f"=== 결과 저장: {out} ===")
-    return {"version": version, "per_doc": per_doc, "overall": overall, "result_md": out}
+    return {"version": version, "matrix": matrix, "result_md": out}
 
 
-def _run_track_b(version: str | None = None) -> None:
-    """트랙 B (실계약 문서 단위): 사람 확인용 덤프 + MISSING Recall → `{version}_b_result.md`.
+def _run_track_b(version: str | None = None, coverage_types: List[Any] | None = None) -> None:
+    """트랙 B (실계약 문서 단위): raw/ 각 문서 × coverage_types 표준코퍼스 M:N 커버리지.
 
-    문서를 한 번만 검토하며 (1) MISSING 후보·강건성 덤프 출력, (2) 정량 지표 계산·저장을 함께 한다.
+    라벨 없이 표준 커버리지·NO_MATCH·deviation 분포를 셀마다 계산·덤프하고 `{version}_b_result.md`
+    로 저장한다. 문서는 유형별 재파싱 없이 1회 파싱·재사용한다. version 생략 시 `_next_version_b`
+    로 자동 증가(기존 `vN_b_result.md` 최댓값+1). 특정 버전 덮어쓰기는 인자로 명시(`run_eval b v2`).
     """
-    version = version or _detect_latest_version(f"{GOLDEN_B_DIR}/labels")
-    evaluate_missing_recall(version, write_md=True, verbose_dump=True)
+    evaluate_coverage_b(version, coverage_types, write_md=True, verbose_dump=True)
 
 
-def main(track: str = "a", version: str | None = None, k: int = 5) -> None:
+def main(
+    track: str = "a", version: str | None = None, k: int = 5,
+    coverage_types: List[Any] | None = None,
+) -> None:
     """평가 드라이버 진입점. track 인자로 트랙을 분기한다(기본 'a').
 
     - track='a': 합성 조항 단위(검색·이탈·독소). `{version}_result.md` 생성.
-    - track='b': 실계약 문서 단위(MISSING Recall·강건성). `{version}_b_result.md` 생성.
+    - track='b': 실계약 문서 단위(M:N 커버리지·강건성). `{version}_b_result.md` 생성.
+      coverage_types 로 대조할 표준 유형 집합을 지정한다(None → 전체 3종 SW·SI·SM).
     """
     logging.basicConfig(level=logging.INFO, format="[%(asctime)s] [%(levelname)s] %(message)s")
     _install_eval_embedding_cache()  # 임베딩 중복 제거 (드라이버 전용 국소 캐시 — 두 트랙 공통)
 
     if track == "b":
-        _run_track_b(version)
+        _run_track_b(version, coverage_types)
     else:
         _run_track_a(k, version)
 
@@ -593,7 +712,8 @@ def main(track: str = "a", version: str | None = None, k: int = 5) -> None:
 if __name__ == "__main__":
     # 사용법: python -m eval.run_eval [a|b] [version]
     #   python -m eval.run_eval            # 트랙 A, 최신 버전
-    #   python -m eval.run_eval b          # 트랙 B, 최신 버전
+    #   python -m eval.run_eval b          # 트랙 B, 새 vN 자동 증가 (raw/ × SW·SI·SM M:N 커버리지)
+    #   python -m eval.run_eval b v2       # 트랙 B, v2 로 덮어쓰기
     #   python -m eval.run_eval a v2       # 트랙 A, v2
     _track = sys.argv[1] if len(sys.argv) > 1 else "a"
     _version = sys.argv[2] if len(sys.argv) > 2 else None

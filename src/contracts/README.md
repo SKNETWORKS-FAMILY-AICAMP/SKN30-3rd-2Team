@@ -40,7 +40,7 @@
 ### 포트 ↔ 구현체 ↔ 상태
 | 포트 | 구현체 | 위치 | 사용 도구 | 상태 |
 | --- | --- | --- | --- | --- |
-| `Parser` | `KordocParser` | `implement/kordoc_parser.py` | `kordoc` + `splitter` + 제N조 파싱 | ✅ |
+| `Parser` | `KordocParser` | `implement/kordoc_parser.py` | `kordoc` + 제N조 라인경계 분해 (# 헤더 유무 무관) | ✅ |
 | `Grounder` | `KoreanLawGrounder` | `implement/korean_law_grounder.py` | `koreanLaw` + `CATEGORY_QUERIES` 매핑 + 텍스트 파싱 | ✅ |
 | `Retriever` | `VectorManager` (`vector`) | `adapter/vector_manager.py` | Chroma + BM25 + RRF | ✅ 기본구현 |
 | `Embedder` | `Bgem3Embedder` (`embedder`) | `adapter/embedding_model.py` | bge-m3 | ✅ 기본구현 |

@@ -32,7 +32,8 @@ detect_toxic_patterns()      ← 동일 조항에 대해 독소 패턴 역방향
 | 함수 | 파이프라인 단계 | 반환 |
 | --- | --- | --- |
 | `select_best_match(candidates, threshold)` | 리랭커 직후 — 최고 후보 선택 | `(StandardClause \| None, float)` |
-| `calculate_text_similarity(t1, t2)` | classify 내부 — 확정된 매칭의 본문 변경량 측정 | `float` 0~1 |
+| `calculate_text_similarity(t1, t2)` | classify 내부 — **항↔항 정렬** 후 본문 변경량 측정 | `float` 0~1 |
+| `detect_critical_changes(user_text, standard_text)` | classify 내부 — 부정어 플립·숫자·당사자 스왑 검출 (NONE 차단 게이트) | `List[str]` 사유 |
 | `classify_clause_deviation(user_text, matched_standard, score, match_threshold, change_threshold)` | 조항 단위 루프 — EXTRA / CHANGED / NONE 판정 | `Deviation` |
 | `detect_missing_clauses(all_standard, matched_ids)` | 루프 종료 후 1회 — 한 번도 매칭 안 된 표준조항 수집 | `List[StandardClause]` |
 | `traverse_related_risks(adjacency_list, deviated_id, max_depth)` | 이탈 확정 후 — 연관 위험 조항 DFS 탐색 (고도화 A) | `List[str]` clause_id |
@@ -65,9 +66,13 @@ detect_toxic_patterns()      ← 동일 조항에 대해 독소 패턴 역방향
 | 파라미터 | 기본값 | 역할 |
 | --- | --- | --- |
 | `match_threshold` | 0.5 (pipe 주입) | 대응 표준조항이 '존재한다'고 볼 수 있는 최소 리랭커 점수. 미달 → `EXTRA` |
-| `change_threshold` | 0.85 | 매칭된 조항의 본문이 '충분히 같다'고 볼 수 있는 SequenceMatcher 일치율. 미달 → `CHANGED` |
+| `change_threshold` | 0.85 | 매칭된 조항의 본문이 '충분히 같다'고 볼 수 있는 **항↔항 정렬** 일치율. 미달 → `CHANGED` |
 
 `change_threshold`에 임베딩 유사도 대신 SequenceMatcher를 쓰는 이유: 법률 문서에서는 미묘한 문구 변경이 법적으로 큰 차이를 만듭니다. 의미 벡터상 가까운 두 조항도 내용 변경으로 보아야 할 수 있으므로, 글자 단위 비교가 더 적합합니다.
+
+**비교 단위는 조↔조가 아니라 항↔항입니다** (v1 리뷰 §2 원인 A 수정). 사용자 조항(단문)을 표준 '조 전체'와 통째로 비교하면 `ratio`의 상한이 길이 비로 묶여 내용이 같아도 NONE에 도달할 수 없습니다(v1 축퇴). 그래서 양쪽을 `split_into_sub_chunks`로 항·호 단위로 쪼개 최적 쌍을 정렬한 뒤, 헤더(`제N조(제목)`)·항 기호(`①` vs `1.`)·공백을 제거한 문장↔문장 일치율의 길이 가중 평균을 씁니다.
+
+**NONE 의 정의는 엄격안**입니다: 서식(헤더·기호·공백)만 다르면 NONE, 문구가 바뀌면(말바꿈 포함) CHANGED. 또한 일치율이 임계값을 넘어도 `detect_critical_changes`가 부정어 플립("부과한다"↔"부과하지 아니한다")·숫자 변경("10%"↔"50%")·당사자 스왑("갑"↔"을")을 잡으면 CHANGED로 강제합니다 — 글자 몇 자 차이가 법적으로 정반대가 되는 케이스를 임계값과 독립적으로 방어합니다.
 
 ---
 

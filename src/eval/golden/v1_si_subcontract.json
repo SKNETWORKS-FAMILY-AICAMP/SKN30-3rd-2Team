@@ -13,9 +13,9 @@
     "contract_type": "SI_SUBCONTRACT",
     "user_clause": "원사업자는 계약 체결 후 상용소프트웨어 개발 등에 필요한 정보를 수급사업자에게 서면으로 제공하고, 제공 지연으로 인한 지체에 대하여 수급사업자에게 책임을 묻지 않는다.",
     "gold_clause_id": "si_subcontract-2022-art5",
-    "gold_deviation": "NONE",
+    "gold_deviation": "CHANGED",
     "trap": "paraphrase",
-    "note": "정보제공 및 계획서 제출 조항의 의미를 유지한 말바꿈 케이스"
+    "note": "정보제공 및 계획서 제출 조항의 의미를 유지한 말바꿈 케이스 [엄격안 재라벨: 말바꿈은 CHANGED — v1_review.md §6]"
   },
   {
     "case_id": "g03",
@@ -106,9 +106,9 @@
     "contract_type": "SI_SUBCONTRACT",
     "user_clause": "원사업자는 수급사업자의 책임으로 돌릴 수 있는 사유가 아니면 위탁을 임의로 취소하거나 변경하지 아니하고, 완료 통보 후 임의로 반품하지 아니한다.",
     "gold_clause_id": "si_subcontract-2022-art24",
-    "gold_deviation": "NONE",
+    "gold_deviation": "CHANGED",
     "trap": "paraphrase",
-    "note": "제24조 부당한 위탁취소 및 반품 금지의 정상 매칭 케이스"
+    "note": "제24조 부당한 위탁취소 및 반품 금지의 정상 매칭 케이스 [엄격안 재라벨: 말바꿈은 CHANGED — v1_review.md §6]"
   },
   {
     "case_id": "g13",

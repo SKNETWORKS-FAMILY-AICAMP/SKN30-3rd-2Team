@@ -23,9 +23,9 @@
     "contract_type": "SW_FREELANCE",
     "user_clause": "양 당사자는 계약 이행 과정에서 알게 된 상대방의 영업비밀을 계약 목적 외로 이용하지 아니한다.",
     "gold_clause_id": "sw_freelance-2020-art17",
-    "gold_deviation": "NONE",
+    "gold_deviation": "CHANGED",
     "trap": "paraphrase",
-    "note": "말바꿈이지만 의미 동일 — 키워드(영업비밀/비밀)로도 검색돼야 함"
+    "note": "말바꿈이지만 의미 동일 — 키워드(영업비밀/비밀)로도 검색돼야 함 [엄격안 재라벨: 말바꿈은 CHANGED — v1_review.md §6]"
   },
   {
     "case_id": "g04",

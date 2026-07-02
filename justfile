@@ -38,7 +38,7 @@ install-packages:
     @echo ""
     @echo "📦 MCP 글로벌 패키지 설치 상태 확인 중..."
     @if (Get-Command korean-law-mcp -ErrorAction SilentlyContinue) { echo "[OK] korean-law-mcp가 이미 설치되어 있습니다." } else { echo "[INFO] korean-law-mcp 설치 중..."; npm.cmd install -g korean-law-mcp }
-    @if (Get-Command kordoc -ErrorAction SilentlyContinue) { echo "[OK] kordoc가 이미 설치되어 있습니다." } else { echo "[INFO] kordoc 설치 중..."; npm.cmd install -g kordoc pdfjs-dist }
+    @if (Get-Command kordoc -ErrorAction SilentlyContinue) { echo "[OK] kordoc가 이미 설치되어 있습니다." } else { echo "[INFO] kordoc 설치 중..."; npm.cmd install -g kordoc pdfjs-dist@4.10.38 }
 
 [windows]
 [private]
@@ -51,7 +51,7 @@ install-packages:
     @echo ""
     @echo "📦 MCP 글로벌 패키지 설치 상태 확인 중..."
     @if command -v korean-law-mcp >/dev/null 2>&1; then echo "[OK] korean-law-mcp가 이미 설치되어 있습니다."; else echo "[INFO] korean-law-mcp 설치 중..."; npm install -g korean-law-mcp; fi
-    @if command -v kordoc >/dev/null 2>&1; then echo "[OK] kordoc가 이미 설치되어 있습니다."; else echo "[INFO] kordoc 설치 중..."; npm install -g kordoc pdfjs-dist; fi
+    @if command -v kordoc >/dev/null 2>&1; then echo "[OK] kordoc가 이미 설치되어 있습니다."; else echo "[INFO] kordoc 설치 중..."; npm install -g kordoc pdfjs-dist@4.10.38; fi
 
 [unix]
 [private]
@@ -142,6 +142,17 @@ convert:
 # ----------------------------------------------------
 # eval & test
 # ----------------------------------------------------
+
+# eval용 kordoc cli 실행
+[windows]
+parse_eval file:
+    @echo
+    npx.cmd kordoc "{{file}}" -o 'src/eval/golden_b/converted/{{file_stem(file)}}.md'
+
+[unix]
+parse_eval file:
+    @echo
+    npx kordoc "{{file}}" -o 'src/eval/golden_b/converted/{{file_stem(file)}}.md'
 
 # 평가 드라이버 실행 (예: just eval, just eval b, just eval a v2, 환경 분기는 env="prod" 등으로 지정)
 eval track="a" version="" env="local":

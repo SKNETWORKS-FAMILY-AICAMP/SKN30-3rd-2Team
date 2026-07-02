@@ -56,27 +56,31 @@ APP_ENV=prod PYTHONPATH=src python -m eval.run_eval a v2   # 트랙 A, v2, RunPo
 > 결과 해석 팁: `Recall=1.0` 인데 `특이도=0` 이면 성능이 좋은 게 아니라 **모든 조항을 양성으로 찍는
 > 축퇴**다. 반드시 특이도·TN 을 함께 보고, 원인은 `vN_review.md` 에 남긴다.
 
-### 트랙 B — 실계약 문서 (같은 버전 루프, 단 3가지 조정)
+### 트랙 B — 실계약 문서 (라벨 없는 M:N 표준 커버리지)
 
-트랙 B(실계약 HWP/PDF 문서 단위)도 **같은 버전 루프**를 쓴다. 파일은 `golden_b/` 아래:
+트랙 B(실계약 문서 단위)는 **정답 라벨을 쓰지 않는다.** `raw/` 의 각 실계약 문서를 **SW·SI·SM 세 표준코퍼스 전부와 대조**(M:N)해, 셀마다 표준 커버리지·NO_MATCH·deviation 분포를 자동 계산한다. `vN` 의미도 트랙 A 와 다르다 — 트랙 A 의 vN 은 골든셋 버전, **트랙 B 의 vN 은 시스템/런 버전**(리랭커·튜닝·임계값). 실계약 문서는 고정된 실물이라 입력엔 vN 을 안 붙이고 **실행 결과에만** 붙인다. 파일은 `golden_b/` 아래:
 
-| 파일 | 무엇 | 누가 |
-| --- | --- | --- |
-| `golden_b/raw/*.hwp\|pdf` | 실계약 원본(바이너리) | **사람**(팀 수동 확보) |
-| `golden_b/labels/vN_<id>.json` | 계약 단위 정답(`expected_missing` 등, 스키마: [D_eval.md](../docs/tasks/D_eval.md) §라벨 스키마) | **사람**(아래 순환 편향 주의) |
-| `golden_b/vN_b_result.md` | MISSING Recall(자동) + 강건성 스팟체크(사람) | 하이브리드 |
+| 파일 | 무엇 | vN | 누가 |
+| --- | --- | --- | --- |
+| `golden_b/raw/<name>.hwp\|pdf\|docx…` | 실계약 원본 | 없음 | **사람**(팀 수동 확보) |
+| `golden_b/converted/<name>.md` | kordoc 변환 산출물 | 없음(git 제외·재생성물) | 자동 |
+| `golden_b/vN_b_result.md` | M:N 커버리지 매트릭스(자동) + 강건성 스팟체크(사람) | **있음(시스템 버전)** | 하이브리드 |
+| `golden_b/vN_b_review.md` | 결과 해석·다음 개선점 | 있음 | 리뷰어(사람/AI) |
+
+> 대조 유형은 **코드**에서 정한다 — `main(coverage_types=[...])`, 생략 시 전체 3종(`_coverage_types_default`). 라벨 JSON 은 없다.
 
 ```bash
-# 문서 검토 덤프(사람 확인용) + MISSING Recall 계산·저장을 함께 수행
-APP_ENV=prod PYTHONPATH=src python -m eval.run_eval b        # 트랙 B, 최신 버전
+# raw/ 자동 스캔 → 문서×유형 M:N 커버리지 계산·덤프 + vN_b_result.md 저장
+APP_ENV=prod PYTHONPATH=src python -m eval.run_eval b        # 버전 생략 → 새 vN 자동 증가(기존 결과 최댓값+1)
+APP_ENV=prod PYTHONPATH=src python -m eval.run_eval b v2     # 특정 버전 덮어쓰기(명시)
 ```
 
 **트랙 A와 다른 3가지 (반드시 유의):**
-1. **result.md 가 정량+정성 하이브리드다.** 정량 지표는 **MISSING Recall 하나뿐**(자동 생성)이고, 파싱 성공·deviation 분포·NO_MATCH 폭주 등 **강건성은 정성 스팟체크**(사람이 result.md 하단 섹션을 채움). 완전 자동이 아니다.
-2. **표본이 2~3건이라 수치는 '방향 참고'다.** 문서 한 건만 뒤집혀도 크게 흔들린다. **지표를 최적화 목표로 삼지 말 것.** 트랙 B의 진짜 가치는 "실제 문서가 파싱을 깨뜨리는가"라는 정성 신호.
-3. **⚠️ 순환 편향 방어(가장 중요).** 라벨링은 "처음부터 쓰는" 게 아니라 **시스템이 제안한 MISSING 을 사람이 컨펌**하는 방식이라, 그대로 두면 MISSING Recall 이 "시스템이 자기 자신과 일치하는 정도"를 재게 되어 **낙관 편향**된다(트랙 A의 `R=1.0/특이도=0`과 같은 함정). 컨펌할 때 **시스템이 제안하지 못한 누락도 사람이 독립적으로 찾아** `expected_missing` 에 넣어야 한다.
+1. **result.md 가 정량+정성 하이브리드다.** 정량은 **M:N 커버리지 매트릭스**(자동)이고, 파싱 성공·best-fit 타당성·NO_MATCH 폭주 등 **강건성은 정성 스팟체크**(사람이 result.md 하단 섹션을 채움).
+2. **⚠️ 절대값은 정답이 아니다.** 라벨이 없어 MISSING 이 '진짜 누락'인지 '매칭 실패'인지 구분 못 한다. 커버리지는 **유형 간 비교**(자기 유형이 높은가=best-fit)와 **버전 간 델타**(vN=시스템 튜닝 효과)의 신호로만 읽는다. **지표를 최적화 목표로 삼지 말 것.** 유형끼리 조항이 겹쳐 분리가 흐릴 수 있다.
+3. **왜 검증된 MISSING Recall 이 아니라 커버리지인가.** MISSING Recall 은 조항 단위 사람 라벨이 필요한데, 그 라벨을 시스템 MISSING 출력에서 자동 추출하면 predicted==expected → **항상 R=1.0**(순환 편향, 트랙 A의 `R=1.0/특이도=0`과 같은 함정). 라벨을 사람이 직접 쓰는 비용·편향을 피하려고, **라벨 0개로 결정론적 계산이 가능한 M:N 커버리지**로 대체했다.
 
-**한 사이클(B):** ① `raw/` 에 문서 확보 → ② `run_eval b` 로 덤프+지표 → ③ 덤프의 MISSING 후보를 컨펌(+독립 누락 추가)해 `labels/vN_<id>.json` 갱신 → ④ `vN_b_result.md` 의 강건성 섹션 작성 → ⑤ 리뷰 기록 → ⑥ 버전업.
+**한 사이클(B):** ① `raw/` 에 문서 확보 → ② `run_eval b` 로 M:N 커버리지 매트릭스·덤프(새 vN 자동 생성) → ③ `vN_b_result.md` 의 강건성 섹션 작성(파싱·best-fit·NO_MATCH 확인) → ④ `vN_b_review.md` 에 리뷰 기록 → ⑤ 시스템(리랭커·임계값)을 바꿔 재실행하면 다음 vN 이 생겨 버전 간 커버리지 비교.
 
 ---
 
@@ -101,16 +105,9 @@ APP_ENV=prod PYTHONPATH=src python -m eval.run_eval b        # 트랙 B, 최신 
 - **Recall@k / MRR:** `user_clause`를 retriever에 넣어 얻은 `retrieved_ids`를 `gold_clause_id`와 비교. (`gold_clause_id=null`인 EXTRA 케이스는 "표준에 매칭되면 안 됨"으로 검증)
 - **이탈 Precision/Recall:** 시스템이 이탈로 플래그한 `case_id` 집합 vs `gold_deviation != NONE`인 정답 집합을 `precision_recall`로 비교.
 
-### MISSING 은 계약 단위로 평가
-`MISSING`(누락)은 개별 조항 질의가 아니라 **"표준에는 있는데 사용자 계약서 전체에 없음"** 이라 계약 단위로 측정합니다.
-→ 합성 계약서에서 **일부러 뺀 표준조항 id 목록**을 정답으로 두고, 시스템의 MISSING 출력과 비교합니다.
-```jsonc
-// 계약 단위 골든셋(확장 예)
-{ "contract_id": "c01", "contract_type": "SW_FREELANCE",
-  "clauses": ["g01", "g05", ...],            // 위 케이스 id 참조
-  "expected_missing": ["sw_freelance-art18"] // 손해배상 조항을 일부러 누락시킨 합성 계약
-}
-```
+### MISSING 은 계약 단위 → 트랙 B 커버리지로
+`MISSING`(누락)은 개별 조항 질의가 아니라 **"표준에는 있는데 사용자 계약서 전체에 없음"** 이라 계약 단위입니다. 조항 단위 합성 골든셋(트랙 A)은 구조적으로 이걸 못 담습니다.
+→ 트랙 B 에서 실계약 문서를 유형 표준코퍼스와 대조할 때 나오는 **표준 커버리지**(`=(전체표준−MISSING)/전체표준`)로 간접 측정합니다. 단, **정답 라벨이 없어 절대값은 정답이 아니며**(진짜 누락 vs 매칭 실패 구분 불가) 버전·유형 비교 신호로만 씁니다 — 아래 §트랙 B 참조.
 
 ### 제작 가이드 (기획서 8.3 — 함정을 많이)
 - **합성:** 표준조항을 변형(말바꿈/기간·금액 변경/순서 뒤집기/부분 삭제)해 만든다.
@@ -119,7 +116,7 @@ APP_ENV=prod PYTHONPATH=src python -m eval.run_eval b        # 트랙 B, 최신 
 
 > 현재 합성 골든셋 **v1** 3종 92건(`v1_sw_freelance` 17 · `v1_si_subcontract` 25 · `v1_sm_subcontract` 50).
 > **평가는 두 트랙으로 나뉜다** — 트랙 A(합성 조항 단위: 검색·분류·독소·ablation)와
-> 트랙 B(실제 계약서 = 계약 단위: E2E·MISSING, 현재 보류). 상세·Driver 규격은
+> 트랙 B(실제 계약서 = 문서×유형 M:N: 라벨 없는 표준 커버리지·강건성). 상세·Driver 규격은
 > [docs/tasks/D_eval.md](../docs/tasks/D_eval.md) 를 단일 진실원으로 삼는다.
 
 ---
